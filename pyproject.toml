@@ -1,0 +1,16 @@
+[project]
+name = "teamfinder"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "asyncpg>=0.32.0",
+    "bcrypt>=5.0.0",
+    "fastapi>=0.162.0",
+    "jwt>=1.4.0",
+    "pydantic-settings>=2.16.2",
+    "pydantic[email]>=2.14.3",
+    "redis[asyncio]>=8.1.0",
+    "ruff>=0.17.4",
+    "sqlalchemy[asyncio]>=2.1.8",
+    "sqlmodel>=0.0.48",
+]

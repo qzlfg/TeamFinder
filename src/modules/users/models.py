@@ -33,4 +33,4 @@ class User(SQLModel, table=True):
     telegram_username: str | None = Field(default=None, max_length=32)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()), default_factory=lambda: datetime.now(UTC))
 
-    created_events: list[Event] = Relationship(back_populates="created_by")
+    created_events: list[Event] = Relationship(back_populates="creator_of_event")

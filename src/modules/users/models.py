@@ -1,10 +1,15 @@
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime, func
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from src.common.enums import UserRole
+
+if TYPE_CHECKING:
+    from src.modules.events.models import Event
+
 
 
 class User(SQLModel, table=True):
@@ -27,3 +32,5 @@ class User(SQLModel, table=True):
 
     telegram_username: str | None = Field(default=None, max_length=32)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()), default_factory=lambda: datetime.now(UTC))
+
+    created_events: list[Event] = Relationship(back_populates="created_by")

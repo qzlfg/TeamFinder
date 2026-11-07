@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID, uuid7
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 class Event(SQLModel, table=True):
     __tablename__ = "events"
-    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
     title: str = Field(nullable=False, index=True)
     description: str = Field(nullable=False)
     event_type: EventType = Field(nullable=False, index=True)
@@ -28,7 +28,7 @@ class Event(SQLModel, table=True):
 
 class EventParticipants(SQLModel, table=True):
     __tablename__ = "event_participants"
-    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
     event_id: int = Field(foreign_key="events.id", index=True)
     participant_id: UUID = Field(foreign_key="users.id", index=True)
     status: ParticipantStatus = Field(default=ParticipantStatus.SEARCHING, nullable=False)

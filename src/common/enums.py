@@ -14,3 +14,12 @@ class EventType(StrEnum):
     STARTUP_GRANT = "startup_grant"      # Акселераторы, гранты
     DIPLOMA = "diploma"                  # Междисциплинарный диплом
     PET_PROJECT = "pet_project"          # Бессрочные пет-проекты, open-source проекты
+
+class ParticipantStatus(StrEnum):
+    SEARCHING = "searching"
+    IN_TEAM = "in_team"
+
+class TeamStatus(StrEnum):
+    RECRUITING = "recruiting"
+    FORMED = "formed"
+    ARCHIVED = "archived"

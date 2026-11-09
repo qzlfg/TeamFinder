@@ -6,10 +6,12 @@ from sqlmodel import (
     Column,
     DateTime,
     Field,
+    Index,
     Relationship,
     SQLModel,
     UniqueConstraint,
     func,
+    text,
 )
 
 from src.common.enums import EventType, ParticipantStatus
@@ -20,6 +22,14 @@ if TYPE_CHECKING:
 
 class Event(SQLModel, table=True):
     __tablename__ = "events"
+    __table_args__ = (
+        Index(
+            "uq_active_event_title",
+            func.lower(text("title")),
+            unique=True,
+            postgresql_where=text("is_active = true"),
+        ),
+    )
 
     id: UUID = Field(
         default_factory=uuid7, primary_key=True, index=True, nullable=False

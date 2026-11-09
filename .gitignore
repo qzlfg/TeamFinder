@@ -1,3 +1,37 @@
+*.db
+*.db3
+*.s3db
+
+# Дампы и бэкапы баз данных
+*.dump
+*.sql.gz
+*.sql.tar
+# Игнорировать сырые SQL-файлы или папку с бэкапами
+dumps/
+backups/
+# Если локальные дампы сохраняются прямо в корень:
+# *.sql
+
+# ==========================================
+# Docker
+# ==========================================
+# Локальные директории, проброшенные через volumes (bind mounts)
+# Например, если в docker-compose указано volumes: - ./pgdata:/var/lib/postgresql/data
+postgres_data/
+pgdata/
+redis_data/
+mysql_data/
+mongo_data/
+
+# Локальные оверрайды compose (если каждый разработчик локально меняет порты/сервисы)
+docker-compose.override.yml
+compose.override.yaml
+
+# Логи контейнеров (если монтируются наружу)
+*.log
+docker_logs/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

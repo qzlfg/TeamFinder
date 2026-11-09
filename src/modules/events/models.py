@@ -49,7 +49,7 @@ class Event(SQLModel, table=True):
     creator_of_event: User = Relationship(back_populates="created_events")
 
 
-class EventParticipants(SQLModel, table=True):
+class EventParticipant(SQLModel, table=True):
     __tablename__ = "event_participants"
     __table_args__ = (
         UniqueConstraint("event_id", "participant_id", name="uq_event_participant"),

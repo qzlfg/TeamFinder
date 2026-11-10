@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from uuid import UUID
 
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,12 +8,14 @@ from common.enums import EventType, ParticipantStatus
 from modules.events.models import Event, EventParticipant
 from modules.users.models import User
 
+from .schemas import EventUpdate
+
 
 class EventRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id(self, event_id: int) -> Event:
+    async def get_by_id(self, event_id: UUID) -> Event | None:
         return await self.session.get(event_id, Event) # type: ignore
 
     async def get_events(self, event_types: list[EventType] | None, status: bool | None, skip: int, limit: int) -> Sequence[Event]:
@@ -80,8 +83,8 @@ class EventRepository:
         await self.session.refresh(event)
         return event
 
-    async def update(self, event: Event, update_data: dict) -> Event:
-        for key, value in update_data.items():
+    async def update(self, event: Event, update_data: EventUpdate) -> Event:
+        for key, value in update_data.model_dump():
             setattr(event, key, value)
 
         self.session.add(event)
@@ -90,14 +93,14 @@ class EventRepository:
 
         return event
 
-    async def get_participant_by_id(self, event_id: int, user_id: int) -> Event | None:
+    async def get_participant_by_id(self, event_id: UUID, user_id: UUID) -> EventParticipant | None:
         statement = select(Event).where(Event.id == event_id, User.id == user_id)
         res = await self.session.exec(statement)
         return res.one_or_none()
 
 
-    async def get_participants(self, skip: int, limit: int) -> Sequence[Event]:
-        statement = select(Event).offset(skip).limit(limit)
+    async def get_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
+        statement = select(Event).where(Event.id == event_id).offset(skip).limit(limit)
         res = await self.session.exec(statement)
         return res.all()
 
@@ -114,7 +117,7 @@ class EventRepository:
         await self.session.commit()
         await self.session.refresh(event_participant)
 
-    async def list_solo_participants(self) -> Sequence[EventParticipant]:
-        statement = select(EventParticipant).where(EventParticipant == ParticipantStatus.SEARCHING)
+    async def get_solo_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
+        statement = select(EventParticipant).where(Event.id == event_id, EventParticipant == ParticipantStatus.SEARCHING).offset(skip).limit(limit)
         res = await self.session.exec(statement)
         return res.all()

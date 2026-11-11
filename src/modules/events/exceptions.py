@@ -29,10 +29,6 @@ class EventRegistrationDeadlinePassedError(EventError):
     detail = "Регистрация на мероприятие завершена (дедлайн прошёл)"
 
 
-class InvalidTeamSizeLimitsError(EventError):
-    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-    detail = "Минимальный размер команды не может быть больше максимального"
-
 
 class EventForbiddenError(EventError):
     status_code = status.HTTP_403_FORBIDDEN

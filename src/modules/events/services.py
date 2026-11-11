@@ -13,7 +13,6 @@ from .exceptions import (
     EventNotFoundError,
     EventRegistrationDeadlinePassedError,
     EventTitleAlreadyExistsError,
-    InvalidTeamSizeLimitsError,
     ParticipantAlreadyInTeamError,
     ParticipantAlreadyRegisteredError,
     ParticipantNotFoundError,
@@ -31,8 +30,6 @@ class EventService:
         existing_event = await self.event_repo.get_active_by_title(event_data.title)
         if existing_event:
             raise EventTitleAlreadyExistsError()
-        if event_data.max_team_size > event_data.min_team_size:
-            raise InvalidTeamSizeLimitsError()
 
         event = Event(
             **event_data.model_dump(),

@@ -98,8 +98,10 @@ class EventRepository:
         return res.one_or_none()
 
 
-    async def get_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
+    async def get_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[EventParticipant]:
         statement = select(EventParticipant).where(EventParticipant.event_id == event_id).offset(skip).limit(limit)
+        if status:
+            statement = statement.where(EventParticipant.status == status)
         res = await self.session.exec(statement)
         return res.all()
 

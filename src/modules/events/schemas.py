@@ -5,7 +5,6 @@ from uuid import UUID
 from pydantic import Field, model_validator
 from sqlmodel import SQLModel
 
-from modules.events.exceptions import InvalidTeamSizeLimitsError
 from src.common.enums import EventType, ParticipantStatus
 from src.modules.users.schemas import UserPublicRead
 
@@ -23,7 +22,7 @@ class EventCreate(EventBase):
     @model_validator(mode="after")
     def validate_team_sizes_and_deadline(self) -> Self:
         if self.min_team_size > self.max_team_size:
-            raise InvalidTeamSizeLimitsError
+            raise ValueError("Минимальный размер команды не может превышать максимального")
         if self.registration_deadline:
             deadline = self.registration_deadline
             if deadline.tzinfo is None:

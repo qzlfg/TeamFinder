@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
-from common.enums import EventType, ParticipantStatus
+from common.enums import EventType, ParticipantStatus, UserRole
 from modules.users.models import User
 
 from .exceptions import (
@@ -48,11 +48,11 @@ class EventService:
     async def get_all_events(self, event_types: list[EventType] | None, status: bool | None, skip: int, limit: int) -> Sequence[Event]:
         return await self.event_repo.get_events(event_types, status, skip, limit)
 
-    async def update_event(self, event_id: UUID, user: User , update_data: EventUpdate) -> Event:
+    async def update_event(self, event_id: UUID, user: User, update_data: EventUpdate) -> Event:
         existing_event = await self.event_repo.get_by_id(event_id)
         if not existing_event:
             raise EventNotFoundError()
-        if existing_event.creator_id != user.id:
+        if user.role != UserRole.ADMIN and existing_event.creator_id != user.id:
             raise EventForbiddenError()
         return await self.event_repo.update(existing_event, update_data)
     
@@ -87,18 +87,14 @@ class EventService:
         await self.event_repo.remove_participant(participant)
         return participant
 
-    async def get_all_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
-        return await self.event_repo.get_participants(event_id, skip, limit)
+    async def get_all_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[EventParticipant]:
+        return await self.event_repo.get_participants(event_id, status, skip, limit)
 
     async def get_solo_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
         return await self.event_repo.get_solo_participants(event_id, skip, limit)
 
     async def get_search_suggestions(self, raw_query: str) -> Sequence[Event]:
         query = raw_query.strip()
-
-        # Если пользователь ввел меньше 2 символов, поиск не запускаем
-        if len(query) < 2:
-            return []
 
         return await self.event_repo.search_by_title(
             query=query,

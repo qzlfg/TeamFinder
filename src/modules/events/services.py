@@ -90,9 +90,6 @@ class EventService:
     async def get_all_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[EventParticipant]:
         return await self.event_repo.get_participants(event_id, status, skip, limit)
 
-    async def get_solo_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
-        return await self.event_repo.get_solo_participants(event_id, skip, limit)
-
     async def get_search_suggestions(self, raw_query: str) -> Sequence[Event]:
         query = raw_query.strip()
 

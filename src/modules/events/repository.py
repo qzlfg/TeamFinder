@@ -64,7 +64,6 @@ class EventRepository:
         return result.all()
 
     async def get_active_by_title(self, title: str) -> Event | None:
-        """Поиск активного мероприятия с таким же названием"""
         statement = select(Event).where(
             func.lower(Event.title) == title.lower().strip(),
             Event.is_active == True,
@@ -116,8 +115,3 @@ class EventRepository:
     async def remove_participant(self, event_participant: EventParticipant) -> None:
         await self.session.delete(event_participant)
         await self.session.commit()
-
-    async def get_solo_participants(self, event_id: UUID, skip: int, limit: int) -> Sequence[EventParticipant]:
-        statement = select(EventParticipant).where(EventParticipant.event_id == event_id, EventParticipant.status == ParticipantStatus.SEARCHING).offset(skip).limit(limit)
-        res = await self.session.exec(statement)
-        return res.all()

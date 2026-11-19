@@ -197,6 +197,30 @@ class TeamService:
         team.leader_id = new_leader_id
         return await self.team_repo.save(team)
 
+    async def delete_team(self, team_id: UUID, user: User) -> None:
+        team = await self.team_repo.get_by_id(team_id)
+        if not team:
+            raise TeamNotFoundError()
+
+        if user.role != UserRole.ADMIN and team.leader_id != user.id:
+            raise TeamForbiddenError()
+
+        if team.event_id is not None:
+            event = await self.event_repo.get_by_id(team.event_id)
+            if not event:
+                raise EventNotFoundError()
+
+            if not event.is_active and user.role != UserRole.ADMIN:
+                raise EventInactiveError()
+
+            member_ids = await self.team_repo.get_member_user_ids(team.id)
+            await self.event_repo.reset_participants_to_searching(
+                event_id=team.event_id,
+                user_ids=member_ids,
+            )
+
+        await self.team_repo.delete(team)
+
 
     async def get_team_members(self, team_id: UUID) -> Sequence[TeamMember]:
         team = await self.team_repo.get_by_id(team_id)

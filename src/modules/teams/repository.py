@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from sqlmodel import col, func, select
+from sqlmodel import delete as sqlmodel_delete
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -125,6 +126,23 @@ class TeamRepository:
         await self.session.commit()
         await self.session.refresh(team)
         return team
+
+    async def get_member_user_ids(self, team_id: UUID) -> Sequence[UUID]:
+        """Возвращает список user_id всех участников команды."""
+        statement = select(TeamMember.user_id).where(TeamMember.team_id == team_id)
+        result = await self.session.exec(statement)
+        return result.all()
+
+    async def delete(self, team: Team) -> None:
+        """Удаляет вакансии, состав участников и саму команду в одной транзакции."""
+        await self.session.exec(
+            sqlmodel_delete(Vacancy).where(col(Vacancy.team_id) == team.id)
+        )
+        await self.session.exec(
+            sqlmodel_delete(TeamMember).where(col(TeamMember.team_id) == team.id)
+        )
+        await self.session.delete(team)
+        await self.session.commit()
 
     async def add_member(
         self,

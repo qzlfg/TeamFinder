@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from sqlmodel import col, func, select
+from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from common.enums import EventType, ParticipantStatus
@@ -115,3 +116,20 @@ class EventRepository:
     async def remove_participant(self, event_participant: EventParticipant) -> None:
         await self.session.delete(event_participant)
         await self.session.commit()
+
+    async def reset_participants_to_searching(
+        self, event_id: UUID, user_ids: Sequence[UUID]
+    ) -> None:
+        """Возвращает участников расформированной команды в пул поиска."""
+        if not user_ids:
+            return
+
+        statement = (
+            sqlmodel_update(EventParticipant)
+            .where(
+                col(EventParticipant.event_id) == event_id,
+                col(EventParticipant.participant_id).in_(user_ids),
+            )
+            .values(status=ParticipantStatus.SEARCHING)
+        )
+        await self.session.exec(statement)

@@ -90,7 +90,17 @@ async def update_team(
         user=user
     )
 
-#@router.delete("/teams/{team_id}", response_model=TeamRead)
+@router.delete(
+    "/teams/{team_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_team(
+    team_id: UUID,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    """Удаление команды (доступно лидеру команды или администратору)."""
+    await team_service.delete_team(team_id=team_id, user=user)
 
 @router.get(
     "/teams/{team_id}/members",

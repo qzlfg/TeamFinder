@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import EventType, ParticipantStatus, UserRole
+from common.enums import EventType, ParticipantStatus, TeamStatus, UserRole
 from modules.auth.dependencies import get_current_user, require_role
 from modules.teams.dependencies import get_team_service
 from modules.teams.schemas import TeamRead
@@ -125,6 +125,7 @@ async def leave_event(
 )
 async def get_event_teams(
     event_id: UUID,
+    status: list[TeamStatus] | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     team_service: TeamService = Depends(get_team_service),
@@ -132,6 +133,7 @@ async def get_event_teams(
     """Список всех команд, участвующих в конкретном мероприятии."""
     return await team_service.get_teams_by_event(
         event_id=event_id,
+        status=status,
         skip=skip,
         limit=limit,
     )

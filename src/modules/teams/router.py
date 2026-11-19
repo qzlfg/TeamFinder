@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
+from common.enums import TeamStatus
 from src.modules.auth.dependencies import get_current_user
 from src.modules.users.models import User
 
@@ -26,3 +27,41 @@ async def get_team(
         service_team: TeamService = Depends(get_team_service)
 ):
     return await service_team.get_team(team_id)
+
+
+@router.get(
+    "/teams",
+    response_model=list[TeamRead],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_teams(
+    status: list[TeamStatus] | None = Query(default=None),
+    event_id: UUID | None = Query(default=None),
+    only_pet_projects: bool = Query(default=False),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    team_service: TeamService = Depends(get_team_service),
+):
+    return await team_service.get_all_teams(
+        statuses=status,
+        event_id=event_id,
+        only_pet_projects=only_pet_projects,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.post("/teams/{team_id}/transfer-leadership", response_model=TeamRead)
+async def transfer_leadership(
+    team_id: UUID,
+    new_leader_id: UUID,
+    user: User = Depends(get_current_user),
+    team_service: TeamService = Depends(get_team_service),
+):
+    return await team_service.transfer_leadership(
+        team_id=team_id,
+        current_user=user,
+        new_leader_id=new_leader_id
+    )
+
+

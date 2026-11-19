@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from sqlmodel import col, func, select
+from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from common.enums import ParticipantStatus, TeamStatus, VacancyStatus
@@ -236,3 +237,14 @@ class TeamRepository:
         await self.session.delete(vacancy)
         await self.session.commit()
 
+    async def close_open_vacancies(self, team_id: UUID) -> None:
+        """Переводит все открытые вакансии команды в статус CLOSED."""
+        statement = (
+            sqlmodel_update(Vacancy)
+            .where(
+                col(Vacancy.team_id) == team_id,
+                col(Vacancy.status) == VacancyStatus.OPEN,
+            )
+            .values(status=VacancyStatus.CLOSED)
+        )
+        await self.session.exec(statement)

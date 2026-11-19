@@ -10,6 +10,10 @@ from src.modules.users.models import User
 from .dependencies import get_team_service
 from .schemas import (
     TeamCreate,
+    TeamMemberCreate,
+    TeamMemberDetailRead,
+    TeamMemberRead,
+    TeamMemberUpdate,
     TeamRead,
     TeamUpdate,
     VacancyCreate,
@@ -70,6 +74,104 @@ async def transfer_leadership(
         team_id=team_id,
         current_user=user,
         new_leader_id=new_leader_id
+    )
+
+
+@router.patch("/teams/{team_id}", response_model=TeamRead)
+async def update_team(
+    team_id: UUID,
+    update_data: TeamUpdate,
+    user: User = Depends(get_current_user),
+    team_service: TeamService = Depends(get_team_service),
+):
+    return await team_service.update_team(
+        team_id=team_id,
+        update_data=update_data,
+        user=user
+    )
+
+#@router.delete("/teams/{team_id}", response_model=TeamRead)
+
+@router.get(
+    "/teams/{team_id}/members",
+    response_model=list[TeamMemberDetailRead],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_team_members(
+    team_id: UUID,
+    team_service: Depends(get_team_service),
+):
+    """Список всех участников команды с их публичными профилями."""
+    return await team_service.get_team_members(team_id)
+
+
+@router.post(
+    "/teams/{team_id}/members",
+    response_model=TeamMemberRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_team_member(
+    team_id: UUID,
+    member_in: TeamMemberCreate,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    """Прямое добавление участника в команду (доступно лидеру команды или админу)."""
+    return await team_service.add_member(
+        team_id=team_id,
+        current_user=user,
+        member_in=member_in,
+    )
+
+
+@router.patch(
+    "/teams/{team_id}/members/{user_id}",
+    response_model=TeamMemberRead,
+)
+async def update_team_member_role(
+    team_id: UUID,
+    user_id: UUID,
+    update_data: TeamMemberUpdate,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    """Изменение роли участника в команде (доступно лидеру, самому участнику или админу)."""
+    return await team_service.update_member_role(
+        team_id=team_id,
+        target_user_id=user_id,
+        current_user=user,
+        update_data=update_data,
+    )
+
+
+@router.delete(
+    "/teams/{team_id}/members/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def leave_team(
+    team_id: UUID,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    """Добровольный выход текущего пользователя из команды."""
+    await team_service.leave_team(team_id=team_id, current_user=user)
+
+
+@router.delete(
+    "/teams/{team_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_team_member(
+    team_id: UUID,
+    user_id: UUID,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    """Исключение участника из команды (доступно лидеру команды или админу)."""
+    await team_service.remove_member(
+        team_id=team_id,
+        target_user_id=user_id,
+        current_user=user,
     )
 
 

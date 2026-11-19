@@ -156,6 +156,13 @@ class TeamService:
         if user.role != UserRole.ADMIN and team.leader_id != user.id:
             raise TeamForbiddenError()
 
+        if (
+            update_data.status is not None
+            and update_data.status != TeamStatus.RECRUITING
+            and team.status == TeamStatus.RECRUITING
+        ):
+            await self.team_repo.close_open_vacancies(team.id)
+
         if update_data.status == TeamStatus.RECRUITING and team.event_id is not None:
             event = await self.event_repo.get_by_id(team.event_id)
             if event:
@@ -376,6 +383,9 @@ class TeamService:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise TeamNotFoundError()
+
+        if status == VacancyStatus.OPEN and team.status != TeamStatus.RECRUITING:
+            return []
 
         return await self.team_repo.get_team_vacancies(
             team_id=team_id,

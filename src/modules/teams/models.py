@@ -3,7 +3,7 @@ from uuid import UUID, uuid7
 
 from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint, func
 
-from common.enums import TeamStatus
+from common.enums import TeamStatus, VacancyStatus
 
 
 class Team(SQLModel, table=True):
@@ -48,6 +48,26 @@ class TeamMember(SQLModel, table=True):
     role_name: str = Field(max_length=255, nullable=False)
 
     joined_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
+        default_factory=lambda: datetime.now(UTC),
+    )
+
+
+class Vacancy(SQLModel, table=True):
+    __tablename__ = "vacancies"
+
+    id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
+    team_id: UUID = Field(foreign_key="teams.id", index=True, nullable=False)
+    title: str = Field(max_length=255, nullable=False)
+    required_role: str = Field(max_length=255, nullable=False)
+    description: str = Field(max_length=1000, nullable=False)
+    status: VacancyStatus = Field(default=VacancyStatus.OPEN, nullable=False)
+
+    created_at: datetime = Field(
         sa_column=Column(
             DateTime(timezone=True),
             nullable=False,

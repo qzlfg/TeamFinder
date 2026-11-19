@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from common.enums import ParticipantStatus, TeamStatus, UserRole
+from common.enums import ParticipantStatus, TeamStatus, UserRole, VacancyStatus
 from modules.events.exceptions import (
     EventInactiveError,
     EventNotFoundError,
@@ -21,12 +21,21 @@ from .exceptions import (
     TeamMemberAlreadyExistsError,
     TeamMemberNotFoundError,
     TeamNotFoundError,
+    TeamNotRecruitingError,
     TeamTitleAlreadyTaken,
     UserAlreadyInEventTeamError,
+    VacancyNotFoundError,
 )
-from .models import Team, TeamMember
+from .models import Team, TeamMember, Vacancy
 from .repository import TeamRepository
-from .schemas import TeamCreate, TeamMemberCreate, TeamMemberUpdate, TeamUpdate
+from .schemas import (
+    TeamCreate,
+    TeamMemberCreate,
+    TeamMemberUpdate,
+    TeamUpdate,
+    VacancyCreate,
+    VacancyUpdate,
+)
 
 
 class TeamService:
@@ -261,7 +270,7 @@ class TeamService:
         if not is_allowed:
             raise TeamForbiddenError()
 
-        member = await self.team_repo.get_member(team_id, target_user_id)
+        member = await self.team_repo.get_member_by_id(team_id, target_user_id)
         if not member:
             raise TeamMemberNotFoundError()
 
@@ -310,7 +319,7 @@ class TeamService:
         if target_user_id == team.leader_id:
             raise LeaderCannotLeaveTeamError()
 
-        member = await self.team_repo.get_member(team_id, target_user_id)
+        member = await self.team_repo.get_member_by_id(team_id, target_user_id)
         if not member:
             raise TeamMemberNotFoundError()
 
@@ -321,7 +330,132 @@ class TeamService:
                 user_id=target_user_id,
             )
 
-        await self.team_repo.remove_member_atomic(
+        await self.team_repo.remove_member(
             member=member,
             solo_participant=solo_participant,
         )
+
+    async def create_vacancy(self, team_id: UUID, user: User, vacancy_data: VacancyCreate) -> Vacancy:
+        team = await self.team_repo.get_by_id(team_id)
+        if not team:
+            raise TeamNotFoundError()
+        elif user.role != UserRole.ADMIN and team.leader_id != user.id:
+            raise TeamForbiddenError()
+
+        if team.status != TeamStatus.RECRUITING:
+            raise TeamNotRecruitingError()
+
+        if team.event_id is not None:
+            event = await self.event_repo.get_by_id(team.event_id)
+            if not event:
+                raise EventNotFoundError()
+            if not event.is_active:
+                raise EventInactiveError()
+
+            if event.registration_deadline:
+                deadline = event.registration_deadline
+                if deadline.tzinfo is None:
+                    deadline = deadline.replace(tzinfo=UTC)
+                if deadline <= datetime.now(UTC):
+                    raise EventRegistrationDeadlinePassedError()
+
+            current_size = await self.team_repo.count_members(team_id)
+            if current_size >= event.max_team_size:
+                raise TeamFullError()
+
+        vacancy = Vacancy(team_id=team_id, title=vacancy_data.title, description=vacancy_data.description, required_role=vacancy_data.required_role)
+        return await self.team_repo.create_vacancy(vacancy)
+
+    async def get_team_vacancies(
+        self,
+        team_id: UUID,
+        status: VacancyStatus | None,
+        skip: int,
+        limit: int,
+    ) -> Sequence[Vacancy]:
+        team = await self.team_repo.get_by_id(team_id)
+        if not team:
+            raise TeamNotFoundError()
+
+        return await self.team_repo.get_team_vacancies(
+            team_id=team_id,
+            status=status,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_event_vacancies(
+        self,
+        event_id: UUID,
+        status: VacancyStatus | None,
+        skip: int,
+        limit: int,
+    ) -> Sequence[Vacancy]:
+        event = await self.event_repo.get_by_id(event_id)
+        if not event:
+            raise EventNotFoundError()
+
+        return await self.team_repo.get_vacancies_by_event(
+            event_id=event_id,
+            status=status,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def update_vacancy(
+        self,
+        vacancy_id: UUID,
+        user: User,
+        update_data: VacancyUpdate,
+    ) -> Vacancy:
+        vacancy = await self.team_repo.get_vacancy_by_id(vacancy_id)
+        if not vacancy:
+            raise VacancyNotFoundError()
+
+        team = await self.team_repo.get_by_id(vacancy.team_id)
+        if not team:
+            raise TeamNotFoundError()
+
+        if user.role != UserRole.ADMIN and team.leader_id != user.id:
+            raise TeamForbiddenError()
+
+        if (
+            update_data.status == VacancyStatus.OPEN
+            and vacancy.status == VacancyStatus.CLOSED
+        ):
+            if team.status != TeamStatus.RECRUITING:
+                raise TeamNotRecruitingError()
+
+            if team.event_id is not None:
+                event = await self.event_repo.get_by_id(team.event_id)
+                if not event:
+                    raise EventNotFoundError()
+                if not event.is_active:
+                    raise EventInactiveError()
+
+                current_size = await self.team_repo.count_members(team.id)
+                if current_size >= event.max_team_size:
+                    raise TeamFullError()
+
+                if event.registration_deadline:
+                    deadline = event.registration_deadline
+                    if deadline.tzinfo is None:
+                        deadline = deadline.replace(tzinfo=UTC)
+                    if deadline <= datetime.now(UTC):
+                        raise EventRegistrationDeadlinePassedError()
+
+        return await self.team_repo.update_vacancy(vacancy, update_data)
+
+    async def delete_vacancy(self, vacancy_id: UUID, user: User) -> None:
+        vacancy = await self.team_repo.get_vacancy_by_id(vacancy_id)
+        if not vacancy:
+            raise VacancyNotFoundError()
+
+        team = await self.team_repo.get_by_id(vacancy.team_id)
+        if not team:
+            raise TeamNotFoundError()
+
+        if user.role != UserRole.ADMIN and team.leader_id != user.id:
+            raise TeamForbiddenError()
+
+        await self.team_repo.delete_vacancy(vacancy)

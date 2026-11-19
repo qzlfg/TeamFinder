@@ -23,3 +23,7 @@ class TeamStatus(StrEnum):
     RECRUITING = "recruiting"
     FORMED = "formed"
     ARCHIVED = "archived"
+
+class VacancyStatus(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"

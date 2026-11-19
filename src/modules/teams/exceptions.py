@@ -54,3 +54,18 @@ class TeamMemberAlreadyExistsError(TeamError):
 class LeaderCannotLeaveTeamError(TeamError):
     status_code = status.HTTP_400_BAD_REQUEST
     detail = "Лидер не может покинуть команду, не передав права другому участнику"
+
+
+class VacancyNotFoundError(TeamError):
+    status_code = status.HTTP_404_NOT_FOUND
+    detail = "Вакансия не найдена"
+
+
+class VacancyClosedError(TeamError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Вакансия уже закрыта"
+
+
+class TeamNotRecruitingError(TeamError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Команда закрыла набор участников"

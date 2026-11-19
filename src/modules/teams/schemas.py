@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import AnyHttpUrl, model_validator
 from sqlmodel import Field, SQLModel
 
-from common.enums import TeamStatus
+from common.enums import TeamStatus, VacancyStatus
 from src.modules.users.schemas import UserPublicRead
 
 
@@ -68,3 +68,42 @@ class TeamMemberRead(SQLModel):
 class TeamMemberDetailRead(SQLModel):
     """Расширенная карточка участника с публичным профилем для отображения состава команды."""
     user: UserPublicRead
+
+
+class VacancyCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str = Field(min_length=1, max_length=1000)
+    required_role: str = Field(min_length=1, max_length=255)
+
+
+class VacancyUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, min_length=1, max_length=1000)
+    required_role: str | None = Field(default=None, min_length=1, max_length=255)
+    status: VacancyStatus | None = None
+
+    @model_validator(mode="after")
+    def validate_not_empty_and_non_nullable(self) -> Self:
+        if not self.model_fields_set:
+            raise ValueError("Необходимо передать хотя бы одно поле для обновления")
+
+        if "title" in self.model_fields_set and self.title is None:
+            raise ValueError("Название вакансии не может быть пустым")
+        if "description" in self.model_fields_set and self.description is None:
+            raise ValueError("Описание вакансии не может быть пустым")
+        if "required_role" in self.model_fields_set and self.required_role is None:
+            raise ValueError("Требуемая роль не может быть пустой")
+        if "status" in self.model_fields_set and self.status is None:
+            raise ValueError("Статус вакансии не может быть пустым")
+
+        return self
+
+
+class VacancyRead(SQLModel):
+    id: UUID
+    team_id: UUID
+    title: str
+    description: str
+    required_role: str
+    status: VacancyStatus
+    created_at: datetime

@@ -1,11 +1,18 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import EventType, ParticipantStatus, TeamStatus, UserRole
+from common.enums import (
+    EventType,
+    ParticipantStatus,
+    TeamStatus,
+    UserRole,
+    VacancyStatus,
+)
 from modules.auth.dependencies import get_current_user, require_role
 from modules.teams.dependencies import get_team_service
-from modules.teams.schemas import TeamRead
+from modules.teams.schemas import TeamRead, VacancyRead
 from modules.teams.services import TeamService
 from modules.users.models import User
 
@@ -132,6 +139,26 @@ async def get_event_teams(
 ):
     """Список всех команд, участвующих в конкретном мероприятии."""
     return await team_service.get_teams_by_event(
+        event_id=event_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/events/{event_id}/vacancies",
+    response_model=list[VacancyRead],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_event_vacancies(
+    event_id: UUID,
+    team_service: Annotated[TeamService, Depends(get_team_service)],
+    status: Annotated[VacancyStatus | None, Query()] = VacancyStatus.OPEN,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return await team_service.get_event_vacancies(
         event_id=event_id,
         status=status,
         skip=skip,

@@ -1,13 +1,21 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import TeamStatus
+from common.enums import TeamStatus, VacancyStatus
 from src.modules.auth.dependencies import get_current_user
 from src.modules.users.models import User
 
 from .dependencies import get_team_service
-from .schemas import TeamCreate, TeamRead, TeamUpdate
+from .schemas import (
+    TeamCreate,
+    TeamRead,
+    TeamUpdate,
+    VacancyCreate,
+    VacancyRead,
+    VacancyUpdate,
+)
 from .services import TeamService
 
 router = APIRouter()
@@ -65,3 +73,65 @@ async def transfer_leadership(
     )
 
 
+@router.get(
+    "/teams/{team_id}/vacancies",
+    response_model=list[VacancyRead],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_team_vacancies(
+    team_id: UUID,
+    team_service: Depends(get_team_service),
+    status: Annotated[VacancyStatus | None, Query()] = VacancyStatus.OPEN,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return await team_service.get_team_vacancies(
+        team_id=team_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.post(
+    "/teams/{team_id}/vacancies",
+    response_model=VacancyRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_vacancy(
+    team_id: UUID,
+    vacancy_in: VacancyCreate,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    return await team_service.create_vacancy(
+        team_id=team_id,
+        user=user,
+        vacancy_data=vacancy_in,
+    )
+
+
+@router.patch("/vacancies/{vacancy_id}", response_model=VacancyRead)
+async def update_vacancy(
+    vacancy_id: UUID,
+    update_data: VacancyUpdate,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    return await team_service.update_vacancy(
+        vacancy_id=vacancy_id,
+        user=user,
+        update_data=update_data,
+    )
+
+
+@router.delete(
+    "/vacancies/{vacancy_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_vacancy(
+    vacancy_id: UUID,
+    user: Depends(get_current_user),
+    team_service: Depends(get_team_service),
+):
+    await team_service.delete_vacancy(vacancy_id=vacancy_id, user=user)

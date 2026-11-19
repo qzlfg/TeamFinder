@@ -4,10 +4,10 @@ from uuid import UUID
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import ParticipantStatus, TeamStatus
+from common.enums import ParticipantStatus, TeamStatus, VacancyStatus
 from modules.events.models import EventParticipant
-from modules.teams.models import Team, TeamMember
-from modules.teams.schemas import TeamUpdate, TeamMemberUpdate
+from modules.teams.models import Team, TeamMember, Vacancy
+from modules.teams.schemas import TeamMemberUpdate, TeamUpdate, VacancyUpdate
 
 
 class TeamRepository:
@@ -164,3 +164,75 @@ class TeamRepository:
             self.session.add(solo_participant)
 
         await self.session.commit()
+
+
+    async def get_vacancy_by_id(self, vacancy_id: UUID) -> Vacancy | None:
+        return await self.session.get(Vacancy, vacancy_id)
+
+    async def get_team_vacancies(
+        self,
+        team_id: UUID,
+        status: VacancyStatus | None,
+        skip: int,
+        limit: int,
+    ) -> Sequence[Vacancy]:
+        statement = select(Vacancy).where(Vacancy.team_id == team_id)
+
+        if status is not None:
+            statement = statement.where(Vacancy.status == status)
+
+        statement = (
+            statement.order_by(col(Vacancy.created_at).desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.session.exec(statement)
+        return result.all()
+
+    async def get_vacancies_by_event(
+        self,
+        event_id: UUID,
+        status: VacancyStatus | None,
+        skip: int,
+        limit: int,
+    ) -> Sequence[Vacancy]:
+        """Витрина вакансий всех команд внутри конкретного мероприятия."""
+        statement = (
+            select(Vacancy)
+            .join(Team, Vacancy.team_id == Team.id)
+            .where(Team.event_id == event_id)
+        )
+
+        if status is not None:
+            statement = statement.where(Vacancy.status == status)
+
+        statement = (
+            statement.order_by(col(Vacancy.created_at).desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.session.exec(statement)
+        return result.all()
+
+    async def create_vacancy(self, vacancy: Vacancy) -> Vacancy:
+        self.session.add(vacancy)
+        await self.session.commit()
+        await self.session.refresh(vacancy)
+        return vacancy
+
+    async def update_vacancy(
+        self, vacancy: Vacancy, update_data: VacancyUpdate
+    ) -> Vacancy:
+        patch_dict = update_data.model_dump(exclude_unset=True)
+        for key, value in patch_dict.items():
+            setattr(vacancy, key, value)
+
+        self.session.add(vacancy)
+        await self.session.commit()
+        await self.session.refresh(vacancy)
+        return vacancy
+
+    async def delete_vacancy(self, vacancy: Vacancy) -> None:
+        await self.session.delete(vacancy)
+        await self.session.commit()
+

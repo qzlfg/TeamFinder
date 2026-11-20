@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from sqlalchemy.orm import aliased
 from sqlmodel import col, func, select
 from sqlmodel import delete as sqlmodel_delete
 from sqlmodel import update as sqlmodel_update
@@ -126,6 +127,22 @@ class TeamRepository:
         await self.session.commit()
         await self.session.refresh(team)
         return team
+
+    async def are_teammates(self, user_a_id: UUID, user_b_id: UUID) -> bool:
+        """Проверяет, состоят ли два пользователя в одной и той же команде."""
+        tm_a = aliased(TeamMember)
+        tm_b = aliased(TeamMember)
+        statement = (
+            select(tm_a.team_id)
+            .join(tm_b, tm_a.team_id == tm_b.team_id)
+            .where(
+                tm_a.user_id == user_a_id,
+                tm_b.user_id == user_b_id,
+            )
+            .limit(1)
+        )
+        result = await self.session.exec(statement)
+        return result.first() is not None
 
     async def get_member_user_ids(self, team_id: UUID) -> Sequence[UUID]:
         """Возвращает список user_id всех участников команды."""

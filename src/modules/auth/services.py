@@ -91,12 +91,11 @@ class AuthService:
         jti = payload["jti"]
         session_key = self._redis_session_key(user_id, jti)
 
-        # Проверяем, существует ли активная сессия в Redis
         is_active = await self.redis.get(session_key)
         if not is_active:
             raise SessionExpiredError()
 
-        # Ротация токена: удаляем старый jti
+        # удаляем старый jti
         await self.redis.delete(session_key)
 
         user = await self.user_repo.get_by_id(user_id)

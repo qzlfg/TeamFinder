@@ -316,7 +316,7 @@ class TeamService:
         if team.leader_id == current_user.id:
             raise LeaderCannotLeaveTeamError()
 
-        member = await self.team_repo.get_member(team_id, current_user.id)
+        member = await self.team_repo.get_member_by_id(team_id, current_user.id)
         if not member:
             raise TeamMemberNotFoundError()
 
@@ -327,7 +327,7 @@ class TeamService:
                 user_id=current_user.id,
             )
 
-        await self.team_repo.remove_member_atomic(
+        await self.team_repo.remove_member(
             member=member,
             solo_participant=solo_participant,
         )

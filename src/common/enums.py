@@ -27,3 +27,22 @@ class TeamStatus(StrEnum):
 class VacancyStatus(StrEnum):
     OPEN = "open"
     CLOSED = "closed"
+
+class SkillCategory(StrEnum):
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+    DESIGN = "design"
+    ANALYTICS = "analytics"
+    QA = "qa"
+
+class ApplicationDirection(StrEnum):
+    APPLY = "apply"    # Отклик студента на вакансию
+    INVITE = "invite"  # Приглашение от лидера команды
+
+
+class ApplicationStatus(StrEnum):
+    PENDING = "pending"
+    IN_DISCUSSION = "in_discussion"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"

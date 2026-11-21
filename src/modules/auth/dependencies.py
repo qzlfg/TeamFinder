@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Annotated
 from uuid import UUID
 
 import redis.asyncio as aioredis
@@ -24,13 +25,15 @@ def get_auth_service(
     return AuthService(user_repo=UserRepository(session), redis=redis)
 
 
-async def get_current_user(
+def get_current_user_id(
     request: Request,
-    bearer_token: str | None = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_session),
-) -> User:
-    """Извлекает пользователя из Bearer-заголовка (Swagger/API) или из HttpOnly Cookie (веб)."""
-    # 1. Приоритет заголовку (для Swagger UI и мобильных клиентов), иначе берем из Cookie
+    bearer_token: Annotated[str | None, Depends(oauth2_scheme)] = None,
+) -> UUID:
+    """
+    Лёгкая зависимость без обращения к БД.
+    Проверяет JWT из Bearer-заголовка или HttpOnly Cookie и возвращает user_id.
+    Идеальна для SSE / WebSocket, чтобы не трогать пул соединений PostgreSQL.
+    """
     token = bearer_token or request.cookies.get("access_token")
 
     if not token:
@@ -40,7 +43,6 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 2. Быстрая проверка подписи JWT на процессоре (без запросов в Redis)
     payload = decode_token(token, expected_type="access")
     if not payload or "sub" not in payload:
         raise HTTPException(
@@ -49,15 +51,29 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id = UUID(payload["sub"])
+    try:
+        return UUID(payload["sub"])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Некорректный идентификатор пользователя в токене",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+
+
+async def get_current_user(
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> User:
+    """Полная зависимость для REST-эндпоинтов: загружает актуальный объект User из БД."""
     user = await session.get(User, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Пользователь не найден",
         )
-
     return user
+
 
 def require_role(*roles: UserRole) -> Callable:
     """Фабрика зависимостей для проверки прав доступа по ролям."""

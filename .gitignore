@@ -105,3 +105,12 @@ dmypy.json
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+*.md
+# Node / frontend tooling
+.npm-cache/
+frontend/node_modules/
+frontend/dist/
+
+#потом убрать
+frontend/

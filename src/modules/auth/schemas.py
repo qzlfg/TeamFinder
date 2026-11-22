@@ -14,3 +14,8 @@ class TokenResponse(SQLModel):
     access_token: str
     token_type: str = "bearer"
     user: UserPrivateRead
+
+
+class EmailChangeRequest(SQLModel):
+    new_email: NormalizedEmail
+    current_password: str

@@ -1,11 +1,10 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
 from src.common.enums import EventType, ParticipantStatus, UserRole
-from src.modules.users.models import User
 from src.modules.events.exceptions import (
     EventForbiddenError,
     EventInactiveError,
@@ -19,6 +18,7 @@ from src.modules.events.exceptions import (
 from src.modules.events.models import Event, EventParticipant
 from src.modules.events.repository import EventRepository
 from src.modules.events.schemas import EventCreate, EventParticipantCreate, EventUpdate
+from src.modules.users.models import User
 
 
 class EventService:
@@ -66,10 +66,15 @@ class EventService:
         elif participant is not None and participant.status == ParticipantStatus.SEARCHING:
             raise ParticipantAlreadyRegisteredError()
 
-        if existing_event.registration_deadline >= datetime.now():
-            raise EventRegistrationDeadlinePassedError()
-        elif not existing_event.is_active:
+        if not existing_event.is_active:
             raise EventInactiveError()
+
+        deadline = existing_event.registration_deadline
+        if deadline is not None:
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=UTC)
+            if deadline <= datetime.now(UTC):
+                raise EventRegistrationDeadlinePassedError()
 
         event_participant = EventParticipant(event_id=event_id, participant_id=user.id, desired_role=participant_desired_role.desired_role)
 
@@ -83,6 +88,8 @@ class EventService:
         participant = await self.event_repo.get_participant_by_id(event_id, user.id)
         if participant is None:
             raise ParticipantNotFoundError()
+        if participant.status == ParticipantStatus.IN_TEAM:
+            raise ParticipantAlreadyInTeamError()
         await self.event_repo.remove_participant(participant)
         return participant
 

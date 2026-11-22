@@ -139,7 +139,7 @@ async def get_event_teams(
     """Список всех команд, участвующих в конкретном мероприятии."""
     return await team_service.get_teams_by_event(
         event_id=event_id,
-        status=status,
+        statuses=status,
         skip=skip,
         limit=limit,
     )

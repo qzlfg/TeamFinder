@@ -10,8 +10,8 @@ from src.modules.users.models import User
 from src.modules.users.schemas import (
     SkillCreate,
     SkillRead,
-    UserContactRead,
     UserPrivateRead,
+    UserProfileRead,
     UserPublicRead,
     UserUpdate,
 )
@@ -29,12 +29,9 @@ ServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 
 @router.get("/users/me", response_model=UserPrivateRead)
-async def get_my_profile(
-    user: CurrentUser,
-    user_service: ServiceDep,
-):
+async def get_my_profile(user: CurrentUser):
     """Получить полный профиль текущего авторизованного пользователя (с email, Telegram и навыками)."""
-    return await user_service.get_my_profile(user.id)
+    return user
 
 
 @router.patch("/users/me", response_model=UserPrivateRead)
@@ -75,7 +72,7 @@ async def remove_my_skill(
 
 
 # =====================================================================
-# 2. ВИТРИНА И ПУБЛИЧНЫЕ / КОНТАКТНЫЕ КАРТОЧКИ ПОЛЬЗОВАТЕЛЕЙ
+# 2. ВИТРИНА И КАРТОЧКИ ПОЛЬЗОВАТЕЛЕЙ
 # =====================================================================
 
 
@@ -93,11 +90,7 @@ async def search_users(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    """
-    Витрина поиска студентов по навыкам, факультету, курсу или имени.
-
-    - **Приватность:** поле `telegram_username` скрыто.
-    """
+    """Витрина поиска студентов по навыкам, факультету, курсу или имени."""
     return await user_service.search_users(
         skill_ids=skill_id,
         faculty=faculty,
@@ -110,33 +103,20 @@ async def search_users(
 
 @router.get(
     "/users/{user_id}",
-    response_model=UserPublicRead,
-    dependencies=[Depends(get_current_user)],
+    response_model=UserProfileRead,
 )
-async def get_user_public_profile(
-    user_id: UUID,
-    user_service: ServiceDep,
-):
-    """Получить публичную карточку пользователя (без Telegram-контакта)."""
-    return await user_service.get_public_profile(user_id)
-
-
-@router.get(
-    "/users/{user_id}/contacts",
-    response_model=UserContactRead,
-)
-async def get_user_contacts(
+async def get_user_profile(
     user_id: UUID,
     user: CurrentUser,
     user_service: ServiceDep,
 ):
     """
-    Получить расширенную карточку пользователя с `telegram_username` и учебной группой.
+    Карточка пользователя с контекстным раскрытием контактов.
 
-    - **Ограничения:** доступно только сокомандникам, при наличии активной заявки между
-      пользователями (`pending`, `in_discussion`, `accepted`), самому владельцу или администратору.
+    Поля `telegram_username` и `group_name` заполняются только если `can_view_contacts == true`
+    (сокомандники, активная заявка, сам владелец или администратор).
     """
-    return await user_service.get_contact_profile(
+    return await user_service.get_user_profile(
         target_user_id=user_id,
         current_user=user,
     )

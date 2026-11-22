@@ -6,16 +6,15 @@ from uuid import UUID
 import redis.asyncio as aioredis
 
 from src.core import security
-from src.core.security import (
-    REFRESH_TOKEN_EXPIRE_DAYS,
-    decode_token,
-)
+from src.core.exceptions import BadRequestException, ConflictException
+from src.core.security import REFRESH_TOKEN_EXPIRE_DAYS, decode_token
 from src.modules.auth.exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
     SessionExpiredError,
     UserAlreadyExistsError,
 )
+from src.modules.auth.schemas import EmailChangeRequest
 from src.modules.users.models import User
 from src.modules.users.repository import UserRepository
 from src.modules.users.schemas import UserCreate
@@ -44,7 +43,6 @@ class AuthService:
         access_token = security.create_access_token(token_payload)
         refresh_token = security.create_refresh_token(token_payload)
 
-        # Сохраняем активный refresh-токен в Redis с его временем жизни
         await self.redis.set(
             self._redis_session_key(user.id, jti),
             "active",
@@ -60,6 +58,13 @@ class AuthService:
     async def register(self, user_data: UserCreate) -> AuthResult:
         if await self.user_repo.get_by_email(user_data.email):
             raise UserAlreadyExistsError()
+        if (
+            user_data.telegram_username
+            and await self.user_repo.get_by_telegram(user_data.telegram_username)
+        ):
+            raise ConflictException(
+                "Пользователь с таким Telegram username уже зарегистрирован"
+            )
 
         user_dict = user_data.model_dump(exclude={"password", "github_url", "portfolio_url"})
         user = User(
@@ -79,7 +84,7 @@ class AuthService:
         return await self._issue_session(user)
 
     async def refresh_session(self, refresh_token: str | None) -> AuthResult:
-        """Валидирует refresh токен, проверяет Redis и производит ротацию токенов."""
+        """Валидирует refresh-токен, проверяет Redis и производит ротацию токенов."""
         if not refresh_token:
             raise InvalidTokenError("Refresh-токен отсутствует")
 
@@ -87,7 +92,11 @@ class AuthService:
         if not payload or "sub" not in payload or "jti" not in payload:
             raise InvalidTokenError("Недействительный refresh-токен")
 
-        user_id = UUID(payload["sub"])
+        try:
+            user_id = UUID(payload["sub"])
+        except ValueError:
+            raise InvalidTokenError("Недействительный refresh-токен") from None
+
         jti = payload["jti"]
         session_key = self._redis_session_key(user_id, jti)
 
@@ -95,14 +104,12 @@ class AuthService:
         if not is_active:
             raise SessionExpiredError()
 
-        # удаляем старый jti
         await self.redis.delete(session_key)
 
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise InvalidCredentialsError("Пользователь больше не существует")
 
-        # Выпускаем новую пару токенов с новым jti
         return await self._issue_session(user)
 
     async def logout(self, refresh_token: str | None) -> None:
@@ -112,6 +119,36 @@ class AuthService:
 
         payload = decode_token(refresh_token, expected_type="refresh")
         if payload and "sub" in payload and "jti" in payload:
-            user_id = UUID(payload["sub"])
+            try:
+                user_id = UUID(payload["sub"])
+            except ValueError:
+                return
             jti = payload["jti"]
             await self.redis.delete(self._redis_session_key(user_id, jti))
+
+    async def change_email(
+        self,
+        user: User,
+        data: EmailChangeRequest,
+    ) -> AuthResult:
+        if data.new_email == user.email.lower():
+            raise BadRequestException("Новый email совпадает с текущим")
+
+        if not security.verify_password(data.current_password, user.password_hash):
+            raise InvalidCredentialsError("Неверный текущий пароль")
+
+        existing_user = await self.user_repo.get_by_email(data.new_email)
+        if existing_user and existing_user.id != user.id:
+            raise ConflictException("Этот email уже используется другим аккаунтом")
+
+        user.email = data.new_email
+        updated_user = await self.user_repo.save(user)
+
+        session_keys = [
+            key
+            async for key in self.redis.scan_iter(match=f"session:{updated_user.id}:*")
+        ]
+        if session_keys:
+            await self.redis.delete(*session_keys)
+
+        return await self._issue_session(updated_user)

@@ -78,7 +78,7 @@ async def create_team(
     - **Побочные эффекты:** создатель автоматически добавляется в `team_members` как `Team Lead`,
       а при указании `event_id` его статус в `event_participants` переводится в `IN_TEAM`.
     """
-    return await team_service.create_team(user=user, team_in=team_in)
+    return await team_service.create_team(user_id=user.id, team_in=team_in)
 
 
 @router.get(

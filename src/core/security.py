@@ -38,12 +38,12 @@ def _create_token(
     """Внутренний генератор JWT с системными клеймами exp, iat, jti, type."""
     now = datetime.now(UTC)
     to_encode = data.copy()
+    to_encode.setdefault("jti", str(uuid.uuid4()))
     to_encode.update(
         {
             "type": token_type,
             "iat": now,
             "exp": now + expires_delta,
-            "jti": str(uuid.uuid4()),
         }
     )
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)

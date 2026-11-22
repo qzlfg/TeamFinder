@@ -1,11 +1,18 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, func, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.common.enums import SkillCategory
+from src.core.exceptions import ConflictException
+from src.modules.users.exceptions import (
+    SkillAlreadyExistsError,
+    UserSkillAlreadyAddedError,
+    UserTelegramAlreadyExistsError,
+)
 from src.modules.users.models import Skill, User, UserSkill
 from src.modules.users.schemas import UserUpdate
 
@@ -14,12 +21,14 @@ class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(self, user_id: UUID, *, populate_existing: bool = False) -> User | None:
         statement = (
             select(User)
             .where(User.id == user_id)
             .options(selectinload(User.skills))  # type: ignore[arg-type]
         )
+        if populate_existing:
+            statement = statement.execution_options(populate_existing=True)
         result = await self.session.exec(statement)
         return result.first()
 
@@ -67,6 +76,8 @@ class UserRepository:
                 or_(
                     col(User.first_name).ilike(pattern),
                     col(User.last_name).ilike(pattern),
+                    func.concat(User.first_name, " ", User.last_name).ilike(pattern),
+                    func.concat(User.last_name, " ", User.first_name).ilike(pattern),
                 )
             )
 
@@ -76,9 +87,28 @@ class UserRepository:
 
     async def create(self, user: User) -> User:
         self.session.add(user)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise ConflictException(
+                "Пользователь с таким email или Telegram username уже существует"
+            ) from exc
         await self.session.refresh(user)
         return user
+
+    async def save(self, user: User) -> User:
+        """Сохраняет изменённые поля профиля (например, email) без DTO-патча."""
+        self.session.add(user)
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise ConflictException(
+                "Пользователь с таким email или Telegram username уже существует"
+            ) from exc
+
+        return await self.get_by_id(user.id) or user
 
     async def update(self, user: User, update_data: UserUpdate) -> User:
         patch_dict = update_data.model_dump(exclude_unset=True)
@@ -91,8 +121,12 @@ class UserRepository:
             setattr(user, key, value)
 
         self.session.add(user)
-        await self.session.commit()
-        return user  # type: ignore[return-value]
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise UserTelegramAlreadyExistsError() from exc
+        return user
 
     # skills
 
@@ -114,7 +148,11 @@ class UserRepository:
 
     async def create_skill(self, skill: Skill) -> Skill:
         self.session.add(skill)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise SkillAlreadyExistsError() from exc
         await self.session.refresh(skill)
         return skill
 
@@ -129,7 +167,11 @@ class UserRepository:
     async def add_user_skill(self, user_id: UUID, skill_id: int) -> None:
         link = UserSkill(user_id=user_id, skill_id=skill_id)
         self.session.add(link)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise UserSkillAlreadyAddedError() from exc
 
     async def remove_user_skill(self, link: UserSkill) -> None:
         await self.session.delete(link)

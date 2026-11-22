@@ -37,7 +37,9 @@ class TeamUpdate(SQLModel):
 
 
 class TeamRead(SQLModel):
+    id: UUID
     event_id: UUID | None
+    leader_id: UUID
     title: str
     project_description: str | None
     repository_url: AnyHttpUrl | None
@@ -68,6 +70,8 @@ class TeamMemberRead(SQLModel):
 class TeamMemberDetailRead(SQLModel):
     """Расширенная карточка участника с публичным профилем для отображения состава команды."""
     user: UserPublicRead
+    role_name: str
+    joined_at: datetime
 
 
 class VacancyCreate(SQLModel):

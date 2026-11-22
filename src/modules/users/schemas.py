@@ -3,11 +3,11 @@ from typing import Annotated, Self
 from uuid import UUID
 
 from pydantic import (
-    AfterValidator,
     BeforeValidator,
     EmailStr,
     HttpUrl,
     StringConstraints,
+    UrlConstraints,
     model_validator,
 )
 from sqlmodel import Field, SQLModel
@@ -16,16 +16,19 @@ from src.common.enums import SkillCategory, UserRole
 
 
 def _lowercase_email(v: str) -> str:
-    return v.strip().lower()
+    if isinstance(v, str):
+        return v.strip().lower()
+    return v
 
 
 def _normalize_telegram(v: str | None) -> str | None:
     if isinstance(v, str):
-        return v.strip().lstrip("@")
+        return v.strip().lstrip("@").lower()
     return v
 
 
-NormalizedEmail = Annotated[EmailStr, AfterValidator(_lowercase_email)]
+NormalizedEmail = Annotated[EmailStr, BeforeValidator(_lowercase_email)]
+SafeHttpUrl = Annotated[HttpUrl, UrlConstraints(max_length=500)]
 TelegramUsername = Annotated[
     str,
     BeforeValidator(_normalize_telegram),
@@ -58,8 +61,8 @@ class UserBase(SQLModel):
     bio: str | None = Field(default=None, max_length=1000)
     faculty: str | None = Field(default=None, max_length=255)
     group_name: str | None = Field(default=None, max_length=50)
-    github_url: HttpUrl | None = Field(default=None, max_length=500)
-    portfolio_url: HttpUrl | None = Field(default=None, max_length=500)
+    github_url: SafeHttpUrl | None = None
+    portfolio_url: SafeHttpUrl | None = None
 
 
 class UserCreate(UserBase):
@@ -78,8 +81,8 @@ class UserUpdate(SQLModel):
     course: int | None = Field(default=None, ge=1, le=7)
     group_name: str | None = Field(default=None, max_length=50)
     bio: str | None = Field(default=None, max_length=1000)
-    github_url: HttpUrl | None = Field(default=None, max_length=500)
-    portfolio_url: HttpUrl | None = Field(default=None, max_length=500)
+    github_url: SafeHttpUrl | None = None
+    portfolio_url: SafeHttpUrl | None = None
     telegram_username: TelegramUsername | None = None
 
     @model_validator(mode="after")
@@ -107,18 +110,21 @@ class UserPublicRead(SQLModel):
     github_url: str | None
     portfolio_url: str | None
     role: UserRole
-    skills: list[SkillRead] = []
+    skills: list[SkillRead] = Field(default_factory=list)
 
 
-class UserContactRead(UserPublicRead):
-    """Карточка участника с контактами (при общей команде или активной заявке)."""
+class UserProfileRead(UserPublicRead):
+    """Карточка участника (контакты заполнены только если can_view_contacts == True)."""
+
+    can_view_contacts: bool
+    telegram_username: str | None = None
+    group_name: str | None = None
+
+
+class UserPrivateRead(UserPublicRead):
+    """Полная схема профиля для личного кабинета (GET /users/me)."""
 
     telegram_username: str | None
     group_name: str | None
-
-
-class UserPrivateRead(UserContactRead):
-    """Полная схема профиля для личного кабинета (GET /users/me)."""
-
     email: NormalizedEmail
     created_at: datetime

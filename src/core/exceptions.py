@@ -13,6 +13,22 @@ class DomainException(Exception):
         super().__init__(self.detail)
 
 
+class BadRequestException(DomainException):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
+class ForbiddenException(DomainException):
+    status_code = status.HTTP_403_FORBIDDEN
+
+
+class NotFoundException(DomainException):
+    status_code = status.HTTP_404_NOT_FOUND
+
+
+class ConflictException(DomainException):
+    status_code = status.HTTP_409_CONFLICT
+
+
 def setup_exception_handlers(app: FastAPI) -> None:
     """Глобальный перехватчик доменных исключений."""
     @app.exception_handler(DomainException)

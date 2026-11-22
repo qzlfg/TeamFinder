@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from src.common.enums import SkillCategory, UserRole
 
 if TYPE_CHECKING:
-    from modules.events.models import Event
+    from src.modules.events.models import Event
 
 
 class UserSkill(SQLModel, table=True):
@@ -58,4 +58,8 @@ class User(SQLModel, table=True):
     )
 
     created_events: list[Event] = Relationship(back_populates="creator_of_event")
-    skills: list[Skill] = Relationship(back_populates="users", link_model=UserSkill)
+    skills: list[Skill] = Relationship(
+        back_populates="users",
+        link_model=UserSkill,
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )

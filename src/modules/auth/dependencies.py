@@ -16,7 +16,7 @@ from src.modules.users.models import User
 from src.modules.users.repository import UserRepository
 
 # auto_error=False позволяет не падать сразу, если заголовка Authorization нет в запросе
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 
 def get_auth_service(
     session: AsyncSession = Depends(get_session),

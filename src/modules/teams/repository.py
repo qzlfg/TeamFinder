@@ -10,6 +10,7 @@ from src.common.enums import ParticipantStatus, TeamStatus, VacancyStatus
 from src.modules.events.models import EventParticipant
 from src.modules.teams.models import Team, TeamMember, Vacancy
 from src.modules.teams.schemas import TeamMemberUpdate, TeamUpdate, VacancyUpdate
+from src.modules.users.models import User
 
 
 class TeamRepository:
@@ -24,6 +25,14 @@ class TeamRepository:
 
     async def get_members(self, team_id: UUID) -> Sequence[TeamMember]:
         statement = select(TeamMember).where(TeamMember.team_id == team_id)
+        result = await self.session.exec(statement)
+        return result.all()
+
+    async def get_users_by_ids(self, user_ids: Sequence[UUID]) -> Sequence[User]:
+        """Загружает профили участников (со skills через selectin) для карточки состава."""
+        if not user_ids:
+            return []
+        statement = select(User).where(col(User.id).in_(user_ids))
         result = await self.session.exec(statement)
         return result.all()
 

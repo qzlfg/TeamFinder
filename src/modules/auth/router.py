@@ -1,10 +1,17 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Cookie, Depends, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from src.core.security import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
-from src.modules.auth.dependencies import get_auth_service
-from src.modules.auth.schemas import LoginRequest, TokenResponse
+from src.modules.auth.dependencies import get_auth_service, get_current_user
+from src.modules.auth.schemas import (
+    EmailChangeRequest,
+    LoginRequest,
+    TokenResponse,
+)
 from src.modules.auth.services import AuthResult, AuthService
+from src.modules.users.models import User
 from src.modules.users.schemas import UserCreate, UserPrivateRead
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -104,3 +111,22 @@ async def logout(
     """Отзыв сессии в Redis и очистка Cookie."""
     await auth_service.logout(refresh_token)
     _clear_auth_cookies(response)
+
+
+@router.post(
+    "/change-email",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def change_email(
+    payload: EmailChangeRequest,
+    response: Response,
+    current_user: Annotated[User, Depends(get_current_user)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> TokenResponse:
+    result = await auth_service.change_email(current_user, payload)
+    _set_auth_cookies(response, result)
+    return TokenResponse(
+        access_token=result.access_token,
+        user=UserPrivateRead.model_validate(result.user),
+    )

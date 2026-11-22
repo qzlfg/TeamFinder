@@ -7,7 +7,6 @@ from src.modules.teams.repository import TeamRepository
 from src.modules.users.exceptions import (
     SkillAlreadyExistsError,
     SkillNotFoundError,
-    UserContactAccessDeniedError,
     UserNotFoundError,
     UserSkillAlreadyAddedError,
     UserSkillNotFoundError,
@@ -15,47 +14,52 @@ from src.modules.users.exceptions import (
 )
 from src.modules.users.models import Skill, User
 from src.modules.users.repository import UserRepository
-from src.modules.users.schemas import SkillCreate, UserUpdate
+from src.modules.users.schemas import (
+    SkillCreate,
+    UserProfileRead,
+    UserPublicRead,
+    UserUpdate,
+)
 
 
 class UserService:
-    def __init__(self, user_repo: UserRepository, team_repo: TeamRepository, app_repo: ApplicationRepository):
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        team_repo: TeamRepository,
+        app_repo: ApplicationRepository,
+    ):
         self.user_repo = user_repo
         self.team_repo = team_repo
         self.app_repo = app_repo
 
-    async def get_my_profile(self, user_id: UUID) -> User:
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise UserNotFoundError()
-        return user
+    async def _has_contact_access(self, target_user_id: UUID, current_user: User) -> bool:
+        if current_user.id == target_user_id or current_user.role == UserRole.ADMIN:
+            return True
 
-    async def get_public_profile(self, user_id: UUID) -> User:
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise UserNotFoundError()
-        return user
+        if await self.team_repo.are_teammates(current_user.id, target_user_id):
+            return True
 
-    async def get_contact_profile(
+        return await self.app_repo.has_contact_unlocking_application(
+            current_user.id, target_user_id
+        )
+
+    async def get_user_profile(
         self, target_user_id: UUID, current_user: User
-    ) -> User:
-        """Возвращает карточку с Telegram, если есть права доступа."""
+    ) -> UserProfileRead:
+        """Возвращает карточку участника с контекстным раскрытием контактов."""
         target_user = await self.user_repo.get_by_id(target_user_id)
         if not target_user:
             raise UserNotFoundError()
 
-        # Сам пользователь и админ всегда видят контакты
-        if current_user.id == target_user_id or current_user.role == UserRole.ADMIN:
-            return target_user
-
-        is_teammate = await self.team_repo.are_teammates(current_user.id, target_user_id)
-
-        has_active_app = await self.app_repo.has_contact_unlocking_application(current_user.id, target_user_id)
-
-        if not (is_teammate or has_active_app):
-            raise UserContactAccessDeniedError()
-
-        return target_user
+        can_view = await self._has_contact_access(target_user_id, current_user)
+        public = UserPublicRead.model_validate(target_user)
+        return UserProfileRead(
+            **public.model_dump(),
+            can_view_contacts=can_view,
+            telegram_username=target_user.telegram_username if can_view else None,
+            group_name=target_user.group_name if can_view else None,
+        )
 
     async def search_users(
         self,
@@ -79,23 +83,18 @@ class UserService:
     async def update_my_profile(
         self, current_user: User, update_data: UserUpdate
     ) -> User:
-        user = await self.user_repo.get_by_id(current_user.id)
-        if not user:
-            raise UserNotFoundError()
-
         if (
             update_data.telegram_username is not None
             and update_data.telegram_username.lower()
-            != (user.telegram_username or "").lower()
+            != (current_user.telegram_username or "").lower()
         ):
             existing = await self.user_repo.get_by_telegram(
                 update_data.telegram_username
             )
-            if existing and existing.id != user.id:
+            if existing and existing.id != current_user.id:
                 raise UserTelegramAlreadyExistsError()
 
-        return await self.user_repo.update(user, update_data)
-
+        return await self.user_repo.update(current_user, update_data)
 
     # Управление справочником и навыками профиля
 
@@ -120,7 +119,12 @@ class UserService:
             raise UserSkillAlreadyAddedError()
 
         await self.user_repo.add_user_skill(current_user.id, skill_id)
-        return await self.get_my_profile(current_user.id)
+        updated_user = await self.user_repo.get_by_id(
+            current_user.id, populate_existing=True
+        )
+        if not updated_user:
+            raise UserNotFoundError()
+        return updated_user
 
     async def remove_skill_from_me(self, current_user: User, skill_id: int) -> None:
         link = await self.user_repo.get_user_skill(current_user.id, skill_id)

@@ -29,12 +29,14 @@ from src.modules.teams.repository import TeamRepository
 from src.modules.teams.schemas import (
     TeamCreate,
     TeamMemberCreate,
+    TeamMemberDetailRead,
     TeamMemberUpdate,
     TeamUpdate,
     VacancyCreate,
     VacancyUpdate,
 )
 from src.modules.users.models import User
+from src.modules.users.schemas import UserPublicRead
 
 
 class TeamService:
@@ -69,7 +71,7 @@ class TeamService:
             )
             if existing_team:
                 raise UserAlreadyInEventTeamError()
-            existing_team = await self.team_repo.get_team_by_title(team_in.title)
+            existing_team = await self.team_repo.get_team_by_title(event.id, team_in.title)
             if existing_team:
                 raise TeamTitleAlreadyTaken()
 
@@ -121,6 +123,12 @@ class TeamService:
             skip=skip,
             limit=limit,
         )
+
+    async def get_team_by_id(
+        self,
+        team_id: UUID,
+    ):
+        return await self.team_repo.get_by_id(team_id)
 
     async def get_teams_by_event(
         self,
@@ -221,12 +229,24 @@ class TeamService:
         await self.team_repo.delete(team)
 
 
-    async def get_team_members(self, team_id: UUID) -> Sequence[TeamMember]:
+    async def get_team_members(self, team_id: UUID) -> Sequence[TeamMemberDetailRead]:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise TeamNotFoundError()
 
-        return await self.team_repo.get_members(team_id)
+        members = await self.team_repo.get_members(team_id)
+        users = await self.team_repo.get_users_by_ids([member.user_id for member in members])
+        users_by_id = {user.id: user for user in users}
+
+        return [
+            TeamMemberDetailRead(
+                user=UserPublicRead.model_validate(users_by_id[member.user_id], from_attributes=True),
+                role_name=member.role_name,
+                joined_at=member.joined_at,
+            )
+            for member in members
+            if member.user_id in users_by_id
+        ]
 
     async def add_member(
         self,

@@ -15,26 +15,9 @@ class UserNotFoundError(UserError):
     detail = "Пользователь не найден"
 
 
-class UserEmailAlreadyExistsError(UserError):
-    status_code = status.HTTP_409_CONFLICT
-    detail = "Пользователь с таким email уже зарегистрирован"
-
-
 class UserTelegramAlreadyExistsError(UserError):
     status_code = status.HTTP_409_CONFLICT
     detail = "Этот Telegram-аккаунт уже привязан к другому профилю"
-
-
-class UserForbiddenError(UserError):
-    status_code = status.HTTP_403_FORBIDDEN
-    detail = "У вас нет прав на изменение этого профиля"
-
-
-class UserContactAccessDeniedError(UserError):
-    status_code = status.HTTP_403_FORBIDDEN
-    detail = "Контактные данные доступны только участникам одной команды или при наличии активной заявки"
-
-
 
 
 class SkillNotFoundError(UserError):

@@ -5,7 +5,7 @@ from uuid import UUID, uuid7
 from sqlalchemy import Column, DateTime, func
 from sqlmodel import Field, Relationship, SQLModel
 
-from common.enums import SkillCategory, UserRole
+from src.common.enums import SkillCategory, UserRole
 
 if TYPE_CHECKING:
     from modules.events.models import Event
@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 class UserSkill(SQLModel, table=True):
     __tablename__ = "user_skills"
 
-    user_id: UUID = Field(foreign_key="users.id", primary_key=True, nullable=False)
-    skill_id: int = Field(foreign_key="skills.id", primary_key=True, nullable=False)
+    user_id: UUID = Field(foreign_key="users.id", primary_key=True, nullable=False, ondelete="CASCADE")
+    skill_id: int = Field(foreign_key="skills.id", primary_key=True, nullable=False, ondelete="CASCADE")
 
 
 class Skill(SQLModel, table=True):

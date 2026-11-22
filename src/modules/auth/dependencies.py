@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import UserRole
+from src.common.enums import UserRole
 from src.core.database import get_session
 from src.core.redis import get_redis  # Клиент aioredis
 from src.core.security import decode_token

@@ -3,11 +3,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import SkillCategory, UserRole
-from modules.auth.dependencies import get_current_user, require_role
-from modules.users.dependencies import get_user_service
-from modules.users.models import User
-from modules.users.schemas import (
+from src.common.enums import SkillCategory, UserRole
+from src.modules.auth.dependencies import get_current_user, require_role
+from src.modules.users.dependencies import get_user_service
+from src.modules.users.models import User
+from src.modules.users.schemas import (
     SkillCreate,
     SkillRead,
     UserContactRead,
@@ -15,7 +15,7 @@ from modules.users.schemas import (
     UserPublicRead,
     UserUpdate,
 )
-from modules.users.services import UserService
+from src.modules.users.services import UserService
 
 router = APIRouter()
 

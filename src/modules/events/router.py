@@ -3,28 +3,27 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import (
+from src.common.enums import (
     EventType,
     ParticipantStatus,
     TeamStatus,
     UserRole,
     VacancyStatus,
 )
-from modules.auth.dependencies import get_current_user, require_role
-from modules.teams.dependencies import get_team_service
-from modules.teams.schemas import TeamRead, VacancyRead
-from modules.teams.services import TeamService
-from modules.users.models import User
-
-from .dependencies import get_event_service
-from .schemas import (
+from src.modules.auth.dependencies import get_current_user, require_role
+from src.modules.events.dependencies import get_event_service
+from src.modules.events.schemas import (
     EventCreate,
     EventParticipantCreate,
     EventParticipantRead,
     EventRead,
     EventUpdate,
 )
-from .services import EventService
+from src.modules.events.services import EventService
+from src.modules.teams.dependencies import get_team_service
+from src.modules.teams.schemas import TeamRead, VacancyRead
+from src.modules.teams.services import TeamService
+from src.modules.users.models import User
 
 router = APIRouter()
 

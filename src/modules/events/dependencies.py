@@ -1,13 +1,14 @@
+from typing import Annotated
+
 from fastapi import Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from core.database import get_session
+from src.core.database import get_session
+from src.modules.events.repository import EventRepository
+from src.modules.events.services import EventService
 
-from .repository import EventRepository
-from .services import EventService
 
-
-async def get_event_repo(session: Depends(get_session)) -> EventRepository:
-    return EventRepository(session)
-
-async def get_event_service(repo: Depends(get_event_repo)) -> EventService:
-    return EventService(repo)
+def get_event_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> EventService:
+    return EventService(EventRepository(session))

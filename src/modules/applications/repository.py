@@ -6,15 +6,15 @@ from sqlmodel import and_, col, or_, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import (
+from src.common.enums import (
     ApplicationDirection,
     ApplicationStatus,
     ParticipantStatus,
     VacancyStatus,
 )
-from modules.applications.models import Application
-from modules.events.models import EventParticipant
-from modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.applications.models import Application
+from src.modules.events.models import EventParticipant
+from src.modules.teams.models import Team, TeamMember, Vacancy
 
 ACTIVE_APP_STATUSES = (
     ApplicationStatus.PENDING,

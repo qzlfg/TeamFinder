@@ -4,11 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from modules.auth.dependencies import get_current_user, get_current_user_id
-from modules.notifications.dependencies import get_notification_service
-from modules.notifications.schemas import NotificationRead, UnreadCountRead
-from modules.notifications.services import NotificationService, sse_manager
-from modules.users.models import User
+from src.modules.auth.dependencies import get_current_user, get_current_user_id
+from src.modules.notifications.dependencies import get_notification_service
+from src.modules.notifications.schemas import NotificationRead, UnreadCountRead
+from src.modules.notifications.services import NotificationService, sse_manager
+from src.modules.users.models import User
 
 router = APIRouter()
 

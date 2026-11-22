@@ -3,12 +3,12 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from core.database import get_session
-from modules.applications.repository import ApplicationRepository
-from modules.applications.services import ApplicationService
-from modules.events.repository import EventRepository
-from modules.teams.repository import TeamRepository
-from modules.users.repository import UserRepository
+from src.core.database import get_session
+from src.modules.applications.repository import ApplicationRepository
+from src.modules.applications.services import ApplicationService
+from src.modules.events.repository import EventRepository
+from src.modules.teams.repository import TeamRepository
+from src.modules.users.repository import UserRepository
 
 
 def get_application_service(

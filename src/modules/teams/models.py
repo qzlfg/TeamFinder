@@ -3,7 +3,7 @@ from uuid import UUID, uuid7
 
 from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint, func
 
-from common.enums import TeamStatus, VacancyStatus
+from src.common.enums import TeamStatus, VacancyStatus
 
 
 class Team(SQLModel, table=True):
@@ -18,6 +18,7 @@ class Team(SQLModel, table=True):
         foreign_key="events.id",
         index=True,
         nullable=True,
+        ondelete="CASCADE"
     )
     leader_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
 
@@ -43,8 +44,8 @@ class TeamMember(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
-    team_id: UUID = Field(foreign_key="teams.id", index=True, nullable=False)
-    user_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    team_id: UUID = Field(foreign_key="teams.id", index=True, nullable=False, ondelete="CASCADE")
+    user_id: UUID = Field(foreign_key="users.id", index=True, nullable=False, ondelete="CASCADE")
     role_name: str = Field(max_length=255, nullable=False)
 
     joined_at: datetime = Field(
@@ -61,7 +62,7 @@ class Vacancy(SQLModel, table=True):
     __tablename__ = "vacancies"
 
     id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
-    team_id: UUID = Field(foreign_key="teams.id", index=True, nullable=False)
+    team_id: UUID = Field(foreign_key="teams.id", index=True, nullable=False, ondelete="CASCADE")
     title: str = Field(max_length=255, nullable=False)
     required_role: str = Field(max_length=255, nullable=False)
     description: str = Field(max_length=1000, nullable=False)

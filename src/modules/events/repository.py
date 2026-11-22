@@ -5,10 +5,9 @@ from sqlmodel import col, func, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import EventType, ParticipantStatus
-from modules.events.models import Event, EventParticipant
-
-from .schemas import EventUpdate
+from src.common.enums import EventType, ParticipantStatus
+from src.modules.events.models import Event, EventParticipant
+from src.modules.events.schemas import EventUpdate
 
 
 class EventRepository:

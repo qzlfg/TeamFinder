@@ -7,16 +7,16 @@ from fastapi import Request
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
-from common.event_bus import NotificationEvent
-from core.database import async_session_maker
-from core.redis import get_redis_client
-from modules.notifications.exceptions import (
+from src.common.event_bus import NotificationEvent
+from src.core.database import async_session_maker
+from src.core.redis import get_redis_client
+from src.modules.notifications.exceptions import (
     NotificationForbiddenError,
     NotificationNotFoundError,
 )
-from modules.notifications.models import Notification
-from modules.notifications.repository import NotificationRepository
-from modules.notifications.schemas import NotificationRead
+from src.modules.notifications.models import Notification
+from src.modules.notifications.repository import NotificationRepository
+from src.modules.notifications.schemas import NotificationRead
 
 logger = logging.getLogger(__name__)
 

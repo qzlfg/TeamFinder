@@ -1,11 +1,10 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from applications.repository import ApplicationRepository
-
-from common.enums import SkillCategory, UserRole
-from modules.teams.repository import TeamRepository
-from modules.users.exceptions import (
+from src.common.enums import SkillCategory, UserRole
+from src.modules.applications.repository import ApplicationRepository
+from src.modules.teams.repository import TeamRepository
+from src.modules.users.exceptions import (
     SkillAlreadyExistsError,
     SkillNotFoundError,
     UserContactAccessDeniedError,
@@ -14,9 +13,9 @@ from modules.users.exceptions import (
     UserSkillNotFoundError,
     UserTelegramAlreadyExistsError,
 )
-from modules.users.models import Skill, User
-from modules.users.repository import UserRepository
-from modules.users.schemas import SkillCreate, UserUpdate
+from src.modules.users.models import Skill, User
+from src.modules.users.repository import UserRepository
+from src.modules.users.schemas import SkillCreate, UserUpdate
 
 
 class UserService:

@@ -1,6 +1,6 @@
 from fastapi import status
 
-from core.exceptions import DomainException
+from src.core.exceptions import DomainException
 
 
 class NotificationError(DomainException):

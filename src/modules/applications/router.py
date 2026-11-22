@@ -3,17 +3,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from common.enums import ApplicationDirection, ApplicationStatus, UserRole
-from modules.applications.dependencies import get_application_service
-from modules.applications.schemas import (
+from src.common.enums import ApplicationDirection, ApplicationStatus, UserRole
+from src.modules.applications.dependencies import get_application_service
+from src.modules.applications.schemas import (
     ApplicationApplyCreate,
     ApplicationInviteCreate,
     ApplicationRead,
     ApplicationStatusUpdate,
 )
-from modules.applications.services import ApplicationService
-from modules.auth.dependencies import get_current_user, require_role
-from modules.users.models import User
+from src.modules.applications.services import ApplicationService
+from src.modules.auth.dependencies import get_current_user, require_role
+from src.modules.users.models import User
 
 router = APIRouter()
 

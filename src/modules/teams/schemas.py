@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import AnyHttpUrl, model_validator
 from sqlmodel import Field, SQLModel
 
-from common.enums import TeamStatus, VacancyStatus
+from src.common.enums import TeamStatus, VacancyStatus
 from src.modules.users.schemas import UserPublicRead
 
 

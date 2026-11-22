@@ -4,10 +4,9 @@ from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
-from common.enums import EventType, ParticipantStatus, UserRole
-from modules.users.models import User
-
-from .exceptions import (
+from src.common.enums import EventType, ParticipantStatus, UserRole
+from src.modules.users.models import User
+from src.modules.events.exceptions import (
     EventForbiddenError,
     EventInactiveError,
     EventNotFoundError,
@@ -17,9 +16,9 @@ from .exceptions import (
     ParticipantAlreadyRegisteredError,
     ParticipantNotFoundError,
 )
-from .models import Event, EventParticipant
-from .repository import EventRepository
-from .schemas import EventCreate, EventParticipantCreate, EventUpdate
+from src.modules.events.models import Event, EventParticipant
+from src.modules.events.repository import EventRepository
+from src.modules.events.schemas import EventCreate, EventParticipantCreate, EventUpdate
 
 
 class EventService:

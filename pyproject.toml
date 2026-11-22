@@ -10,8 +10,10 @@ dependencies = [
     "jwt>=1.4.0",
     "pydantic-settings>=2.16.2",
     "pydantic[email]>=2.14.3",
+    "python-multipart>=0.0.34",
     "redis[asyncio]>=8.1.0",
     "ruff>=0.17.4",
     "sqlalchemy[asyncio]>=2.1.8",
     "sqlmodel>=0.0.48",
+    "uvicorn>=0.54.0",
 ]

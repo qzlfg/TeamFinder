@@ -40,7 +40,7 @@ class Event(SQLModel, table=True):
 
     min_team_size: int = Field(default=1, ge=1)
     max_team_size: int = Field(default=5, ge=1)
-    creator_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    creator_id: UUID | None = Field(default=None, foreign_key="users.id", ondelete="SET NULL", nullable=True)
 
     registration_deadline: datetime | None = Field(
         default=None,
@@ -66,7 +66,7 @@ class EventParticipant(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
-    event_id: UUID = Field(foreign_key="events.id", index=True, nullable=False)
-    participant_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    event_id: UUID = Field(foreign_key="events.id", index=True, nullable=False, ondelete="CASCADE")
+    participant_id: UUID = Field(foreign_key="users.id", index=True, nullable=False, ondelete="CASCADE")
     status: ParticipantStatus = Field(default=ParticipantStatus.SEARCHING, nullable=False)
     desired_role: str | None = Field(default=None, max_length=100)

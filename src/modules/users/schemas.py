@@ -12,7 +12,7 @@ from pydantic import (
 )
 from sqlmodel import Field, SQLModel
 
-from common.enums import SkillCategory, UserRole
+from src.common.enums import SkillCategory, UserRole
 
 
 def _lowercase_email(v: str) -> str:

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from common.enums import (
+from src.common.enums import (
     ApplicationDirection,
     ApplicationStatus,
     ParticipantStatus,
@@ -10,29 +10,32 @@ from common.enums import (
     UserRole,
     VacancyStatus,
 )
-from modules.applications.exceptions import (
+from src.modules.applications.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationForbiddenError,
     ApplicationNotFoundError,
     CannotApplyToOwnTeamError,
     InvalidApplicationTransitionError,
 )
-from modules.applications.models import Application
-from modules.applications.repository import ACTIVE_APP_STATUSES, ApplicationRepository
-from modules.applications.schemas import (
+from src.modules.applications.models import Application
+from src.modules.applications.repository import (
+    ACTIVE_APP_STATUSES,
+    ApplicationRepository,
+)
+from src.modules.applications.schemas import (
     ApplicationApplyCreate,
     ApplicationInviteCreate,
     ApplicationStatusUpdate,
 )
-from modules.events.exceptions import (
+from src.modules.events.exceptions import (
     EventInactiveError,
     EventNotFoundError,
     EventRegistrationDeadlinePassedError,
     ParticipantNotFoundError,
 )
-from modules.events.models import EventParticipant
-from modules.events.repository import EventRepository
-from modules.teams.exceptions import (
+from src.modules.events.models import EventParticipant
+from src.modules.events.repository import EventRepository
+from src.modules.teams.exceptions import (
     TeamForbiddenError,
     TeamFullError,
     TeamMemberAlreadyExistsError,
@@ -42,11 +45,11 @@ from modules.teams.exceptions import (
     VacancyClosedError,
     VacancyNotFoundError,
 )
-from modules.teams.models import Team, TeamMember, Vacancy
-from modules.teams.repository import TeamRepository
-from modules.users.exceptions import UserNotFoundError
-from modules.users.models import User
-from modules.users.repository import UserRepository
+from src.modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.teams.repository import TeamRepository
+from src.modules.users.exceptions import UserNotFoundError
+from src.modules.users.models import User
+from src.modules.users.repository import UserRepository
 
 
 class ApplicationService:

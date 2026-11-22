@@ -2,18 +2,16 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from common.enums import ParticipantStatus, TeamStatus, UserRole, VacancyStatus
-from modules.events.exceptions import (
+from src.common.enums import ParticipantStatus, TeamStatus, UserRole, VacancyStatus
+from src.modules.events.exceptions import (
     EventInactiveError,
     EventNotFoundError,
     EventRegistrationDeadlinePassedError,
     ParticipantNotFoundError,
 )
-from modules.events.models import EventParticipant
-from modules.events.repository import EventRepository
-from modules.users.models import User
-
-from .exceptions import (
+from src.modules.events.models import EventParticipant
+from src.modules.events.repository import EventRepository
+from src.modules.teams.exceptions import (
     InvalidLeadershipTransferError,
     LeaderCannotLeaveTeamError,
     TeamForbiddenError,
@@ -26,9 +24,9 @@ from .exceptions import (
     UserAlreadyInEventTeamError,
     VacancyNotFoundError,
 )
-from .models import Team, TeamMember, Vacancy
-from .repository import TeamRepository
-from .schemas import (
+from src.modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.teams.repository import TeamRepository
+from src.modules.teams.schemas import (
     TeamCreate,
     TeamMemberCreate,
     TeamMemberUpdate,
@@ -36,6 +34,7 @@ from .schemas import (
     VacancyCreate,
     VacancyUpdate,
 )
+from src.modules.users.models import User
 
 
 class TeamService:

@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from applications.repository import ApplicationRepository
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from core.database import get_session
-from modules.teams.repository import TeamRepository
-from modules.users.repository import UserRepository
-from modules.users.services import UserService
+from src.core.database import get_session
+from src.modules.applications.repository import ApplicationRepository
+from src.modules.teams.repository import TeamRepository
+from src.modules.users.repository import UserRepository
+from src.modules.users.services import UserService
 
 
 def get_user_service(

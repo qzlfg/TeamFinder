@@ -5,7 +5,7 @@ from sqlmodel import col, func, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from modules.notifications.models import Notification
+from src.modules.notifications.models import Notification
 
 
 class NotificationRepository:

@@ -9,7 +9,7 @@ class Notification(SQLModel, table=True):
     __tablename__ = "notifications"
 
     id: UUID = Field(default_factory=uuid7, primary_key=True, index=True, nullable=False)
-    user_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    user_id: UUID = Field(foreign_key="users.id", index=True, nullable=False, ondelete="CASCADE")
 
     title: str = Field(max_length=255, nullable=False)
     message: str = Field(max_length=1000, nullable=False)

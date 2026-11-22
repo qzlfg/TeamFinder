@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
-from common.enums import ApplicationDirection, ApplicationStatus
+from src.common.enums import ApplicationDirection, ApplicationStatus
 
 
 class ApplicationApplyCreate(SQLModel):

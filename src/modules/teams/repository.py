@@ -3,14 +3,13 @@ from uuid import UUID
 
 from sqlalchemy.orm import aliased
 from sqlmodel import col, func, select
-from sqlmodel import delete as sqlmodel_delete
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import ParticipantStatus, TeamStatus, VacancyStatus
-from modules.events.models import EventParticipant
-from modules.teams.models import Team, TeamMember, Vacancy
-from modules.teams.schemas import TeamMemberUpdate, TeamUpdate, VacancyUpdate
+from src.common.enums import ParticipantStatus, TeamStatus, VacancyStatus
+from src.modules.events.models import EventParticipant
+from src.modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.teams.schemas import TeamMemberUpdate, TeamUpdate, VacancyUpdate
 
 
 class TeamRepository:
@@ -152,12 +151,6 @@ class TeamRepository:
 
     async def delete(self, team: Team) -> None:
         """Удаляет вакансии, состав участников и саму команду в одной транзакции."""
-        await self.session.exec(
-            sqlmodel_delete(Vacancy).where(col(Vacancy.team_id) == team.id)
-        )
-        await self.session.exec(
-            sqlmodel_delete(TeamMember).where(col(TeamMember.team_id) == team.id)
-        )
         await self.session.delete(team)
         await self.session.commit()
 

@@ -5,9 +5,9 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import col, func, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from common.enums import SkillCategory
-from modules.users.models import Skill, User, UserSkill
-from modules.users.schemas import UserUpdate
+from src.common.enums import SkillCategory
+from src.modules.users.models import Skill, User, UserSkill
+from src.modules.users.schemas import UserUpdate
 
 
 class UserRepository:

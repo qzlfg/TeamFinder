@@ -1,0 +1,38 @@
+# Зависимости
+node_modules/
+.pnp
+.pnp.js
+
+# Сборка и кэш Vite / TypeScript
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# Кэш инструментов (TanStack Router, Biome, Vitest)
+.tanstack/
+.biome/
+coverage/
+
+# Локальные переменные окружения и ключи
+.env
+.env.*
+!.env.example
+
+# Логи и дампы
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+
+# Редакторы и ИИ-инструменты (если не хотите хранить локальные настройки)
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

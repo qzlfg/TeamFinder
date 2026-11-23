@@ -111,6 +111,3 @@ Desktop.ini
 .npm-cache/
 frontend/node_modules/
 frontend/dist/
-
-#потом убрать
-frontend/

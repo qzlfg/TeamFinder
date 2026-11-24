@@ -24,7 +24,7 @@ export function EventCard({ event }: EventCardProps) {
     >
       <Card
         className={cn(
-          'h-full gap-4 py-5 shadow-none transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-zinc-300 group-hover:shadow-sm',
+          'h-full gap-4 py-5 shadow-none transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-zinc-300',
           isFinished && 'opacity-70',
         )}
       >

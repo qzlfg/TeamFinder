@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import and_, col, or_, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,6 +16,7 @@ from src.common.enums import (
 from src.modules.applications.models import Application
 from src.modules.events.models import EventParticipant
 from src.modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.users.models import User
 
 ACTIVE_APP_STATUSES = (
     ApplicationStatus.PENDING,
@@ -32,9 +34,25 @@ class ApplicationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id(self, application_id: UUID) -> Application | None:
-        return await self.session.get(Application, application_id)
-
+    async def get_by_id(self, application_id: UUID) -> tuple[Application, str, str, UUID, str, User] | None:
+        statement = (
+            select(
+                Application,
+                Vacancy.title,
+                Vacancy.required_role,
+                Team.id,
+                Team.title,
+                User,
+            )
+            .join(Vacancy, Application.vacancy_id == Vacancy.id)
+            .join(Team, Vacancy.team_id == Team.id)
+            .join(User, Application.user_id == User.id)
+            .options(selectinload(User.skills))
+            .where(Application.id == application_id)
+        )
+        result = await self.session.exec(statement)
+        return result.first()
+            
     async def get_active_by_vacancy_and_user(
         self, vacancy_id: UUID, user_id: UUID
     ) -> Application | None:
@@ -55,9 +73,20 @@ class ApplicationRepository:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[Application]:
-        """Личный кабинет студента: его исходящие отклики и входящие приглашения."""
-        statement = select(Application).where(Application.user_id == user_id)
+    ) -> Sequence[tuple[Application, str, str, UUID, str]]:
+        """Личный кабинет студента: отклики и приглашения с названием команды и вакансии."""
+        statement = (
+            select(
+                Application,
+                Vacancy.title,
+                Vacancy.required_role,
+                Team.id,
+                Team.title,
+            )
+            .join(Vacancy, Application.vacancy_id == Vacancy.id)
+            .join(Team, Vacancy.team_id == Team.id)
+            .where(Application.user_id == user_id)
+        )
 
         if direction is not None:
             statement = statement.where(Application.direction == direction)
@@ -72,6 +101,7 @@ class ApplicationRepository:
         result = await self.session.exec(statement)
         return result.all()
 
+
     async def get_team_applications(
         self,
         team_id: UUID,
@@ -81,11 +111,21 @@ class ApplicationRepository:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[Application]:
-        """Кабинет лидера команды: все отклики кандидатов и отправленные инвайты по команде."""
+    ) -> Sequence[tuple[Application, str, str, UUID, str, User]]:
+        """Кабинет лидера команды: заявки с данными вакансии и публичным профилем кандидата."""
         statement = (
-            select(Application)
+            select(
+                Application,
+                Vacancy.title,
+                Vacancy.required_role,
+                Team.id,
+                Team.title,
+                User,
+            )
             .join(Vacancy, Application.vacancy_id == Vacancy.id)
+            .join(Team, Vacancy.team_id == Team.id)
+            .join(User, Application.user_id == User.id)
+            .options(selectinload(User.skills))
             .where(Vacancy.team_id == team_id)
         )
 
@@ -103,6 +143,7 @@ class ApplicationRepository:
         )
         result = await self.session.exec(statement)
         return result.all()
+
 
     async def has_contact_unlocking_application(
         self, user_a_id: UUID, user_b_id: UUID

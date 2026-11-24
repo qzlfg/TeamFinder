@@ -2,29 +2,43 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { GitBranch } from 'lucide-react'
 
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { TeamRead } from '@/features/teams/api'
 import { formatDate } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 interface TeamCardProps {
   team: TeamRead
+  isMyTeam?: boolean
+  isLeader?: boolean
 }
 
 /** Карточка команды: статус, описание и переход к деталям. */
-export function TeamCard({ team }: TeamCardProps) {
+export function TeamCard({ team, isMyTeam = false, isLeader = false }: TeamCardProps) {
   const navigate = useNavigate()
 
   return (
     <Card
-      className="h-full cursor-pointer gap-4 py-5 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm"
+      className={cn(
+        'h-full cursor-pointer gap-4 py-5 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300',
+        isMyTeam && 'border-blue-200 bg-blue-50/20',
+      )}
       onClick={() => {
         void navigate({ to: '/teams/$teamId', params: { teamId: team.id } })
       }}
     >
       <CardHeader className="gap-3 px-5">
         <div className="flex items-center justify-between gap-3">
-          <StatusBadge status={team.status} />
-          <span className="font-mono text-xs text-zinc-400 tabular-nums">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={team.status} />
+            {isMyTeam ? (
+              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                {isLeader ? 'Вы лидер' : 'Ваша команда'}
+              </Badge>
+            ) : null}
+          </div>
+          <span className="shrink-0 font-mono text-xs text-zinc-400 tabular-nums">
             {formatDate(team.created_at)}
           </span>
         </div>

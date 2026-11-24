@@ -143,7 +143,7 @@ class ApplicationService:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[Application]:
+    ) -> Sequence[tuple[Application, str, str, UUID, str]]:
         return await self.app_repo.get_user_applications(
             user_id=current_user.id,
             direction=direction,
@@ -162,7 +162,7 @@ class ApplicationService:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[Application]:
+    ) -> Sequence[tuple[Application, str, str, UUID, str, User]]:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise TeamNotFoundError()
@@ -181,7 +181,7 @@ class ApplicationService:
 
     async def get_application_by_id(
         self, application_id: UUID, current_user: User
-    ) -> Application:
+    ) -> tuple[Application, str, str, UUID, str, User] | None:
         application = await self.app_repo.get_by_id(application_id)
         if not application:
             raise ApplicationNotFoundError()

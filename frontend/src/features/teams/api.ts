@@ -173,15 +173,25 @@ export function useDeleteVacancy(teamId: string) {
   })
 }
 
+export async function leaveTeamRequest(teamId: string): Promise<void> {
+  const result = await client.DELETE('/api/v1/teams/{team_id}/members/me', {
+    params: { path: { team_id: teamId } },
+  })
+  unwrap(result)
+}
+
+export async function deleteTeamRequest(teamId: string): Promise<void> {
+  const result = await client.DELETE('/api/v1/teams/{team_id}', {
+    params: { path: { team_id: teamId } },
+  })
+  unwrap(result)
+}
+
 export function useLeaveTeam(teamId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async () => {
-      await client.DELETE('/api/v1/teams/{team_id}/members/me', {
-        params: { path: { team_id: teamId } },
-      })
-    },
+    mutationFn: () => leaveTeamRequest(teamId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
       void queryClient.invalidateQueries({ queryKey: ['events'] })
@@ -212,11 +222,7 @@ export function useDeleteTeam(teamId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async () => {
-      await client.DELETE('/api/v1/teams/{team_id}', {
-        params: { path: { team_id: teamId } },
-      })
-    },
+    mutationFn: () => deleteTeamRequest(teamId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
       void queryClient.invalidateQueries({ queryKey: ['events'] })

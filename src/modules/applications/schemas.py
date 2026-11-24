@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from src.common.enums import ApplicationDirection, ApplicationStatus
+from src.modules.users.schemas import UserPublicRead
 
 
 class ApplicationApplyCreate(SQLModel):
@@ -38,3 +39,11 @@ class ApplicationRead(SQLModel):
     status: ApplicationStatus
     created_at: datetime
     updated_at: datetime
+
+
+class ApplicationDetailRead(ApplicationRead):
+    vacancy_title: str
+    vacancy_required_role: str
+    team_id: UUID
+    team_title: str
+    user: UserPublicRead | None = None

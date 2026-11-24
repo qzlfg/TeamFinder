@@ -148,9 +148,10 @@ export function useLeaveEvent(eventId: string) {
 
   return useMutation({
     mutationFn: async () => {
-      await client.DELETE('/api/v1/events/{event_id}/participants/me', {
+      const result = await client.DELETE('/api/v1/events/{event_id}/participants/me', {
         params: { path: { event_id: eventId } },
       })
+      unwrap(result)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['events'] })

@@ -10,6 +10,7 @@ from src.modules.applications.schemas import (
     ApplicationInviteCreate,
     ApplicationRead,
     ApplicationStatusUpdate,
+    ApplicationDetailRead
 )
 from src.modules.applications.services import ApplicationService
 from src.modules.auth.dependencies import get_current_user, require_role
@@ -62,7 +63,7 @@ async def invite_to_vacancy(
 
 @router.get(
     "/applications/me",
-    response_model=list[ApplicationRead],
+    response_model=list[ApplicationDetailRead],
 )
 async def get_my_applications(
     user: CurrentUser,
@@ -84,7 +85,7 @@ async def get_my_applications(
 
 @router.get(
     "/applications/teams/{team_id}",
-    response_model=list[ApplicationRead],
+    response_model=list[ApplicationDetailRead],
 )
 async def get_team_applications(
     team_id: UUID,
@@ -114,7 +115,7 @@ async def get_team_applications(
 
 @router.get(
     "/applications/{application_id}",
-    response_model=ApplicationRead,
+    response_model=ApplicationDetailRead,
 )
 async def get_application(
     application_id: UUID,

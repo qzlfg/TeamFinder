@@ -65,6 +65,7 @@ export function useSetApplicationStatus() {
     onSuccess: (application) => {
       void queryClient.invalidateQueries({ queryKey: ['applications'] })
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
       void queryClient.invalidateQueries({ queryKey: ['session'] })
 

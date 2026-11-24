@@ -1,18 +1,20 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { CalendarDays, Plus, UserPlus, Users } from 'lucide-react'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ApplyDialog } from '@/features/applications/ApplyDialog'
+import { type ApplicationRead, useMyApplications } from '@/features/applications/api'
 import { useSession } from '@/features/auth/session'
 import {
   useEvent,
@@ -22,8 +24,8 @@ import {
   useLeaveEvent,
 } from '@/features/events/api'
 import { JoinEventDialog } from '@/features/events/JoinEventDialog'
-import type { VacancyRead } from '@/features/teams/api'
-import { fetchTeamMembers, useDeleteTeam, useLeaveTeam } from '@/features/teams/api'
+import type { TeamRead, VacancyRead } from '@/features/teams/api'
+import { deleteTeamRequest, fetchTeamMembers, leaveTeamRequest } from '@/features/teams/api'
 import { CreateTeamDialog } from '@/features/teams/CreateTeamDialog'
 import { TeamCard } from '@/features/teams/TeamCard'
 import { useUsers } from '@/features/users/api'
@@ -81,25 +83,36 @@ export function EventDetailPage() {
   const inTeamQuery = useEventParticipants(eventId, 'in_team')
   const { data: users = [] } = useUsers('')
   const leaveEvent = useLeaveEvent(eventId)
+  const myApplicationsQuery = useMyApplications()
+
+  const queryClient = useQueryClient()
 
   const teamsForMembership = teamsQuery.data ?? []
+  const participantsForMembership = [...(searchingQuery.data ?? []), ...(inTeamQuery.data ?? [])]
+  const myParticipation = participantsForMembership.find(
+    (participant) => participant.participant_id === session?.id,
+  )
+  const ledTeam = teamsForMembership.find((team) => team.leader_id === session?.id)
+  const needsMemberLookup = myParticipation?.status === 'in_team' && !ledTeam
   const memberQueries = useQueries({
     queries: teamsForMembership.map((team) => ({
       queryKey: ['teams', 'members', team.id],
       queryFn: () => fetchTeamMembers(team.id),
+      enabled: needsMemberLookup,
       staleTime: 30_000,
     })),
   })
-  const myTeam = teamsForMembership.find((_team, index) =>
+  const memberTeam = teamsForMembership.find((_team, index) =>
     memberQueries[index]?.data?.some((member) => member.user.id === session?.id),
   )
-  const isMyTeamLeader = Boolean(myTeam && myTeam.leader_id === session?.id)
-  const leaveTeam = useLeaveTeam(myTeam?.id ?? '')
-  const deleteTeam = useDeleteTeam(myTeam?.id ?? '')
+  const myTeam = ledTeam ?? memberTeam
 
   const [joinOpen, setJoinOpen] = useState(false)
   const [teamOpen, setTeamOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState<TeamRead | null>(null)
+  const [resolvingLeave, setResolvingLeave] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [applyVacancy, setApplyVacancy] = useState<VacancyRead | null>(null)
   const [applyTeamTitle, setApplyTeamTitle] = useState('')
 
@@ -132,12 +145,23 @@ export function EventDetailPage() {
   const event = eventQuery.data
   const teams = teamsQuery.data ?? []
   const vacancies = vacanciesQuery.data ?? []
-  const participants = [...(searchingQuery.data ?? []), ...(inTeamQuery.data ?? [])]
+  const participants = participantsForMembership
   const usersById = new Map(users.map((user) => [user.id, user]))
   const teamById = new Map(teams.map((team) => [team.id, team]))
-  const myParticipation = participants.find(
-    (participant) => participant.participant_id === session?.id,
-  )
+  const activeApplicationsByVacancy = new Map<string, ApplicationRead>()
+  for (const application of myApplicationsQuery.data ?? []) {
+    if (application.status === 'pending' || application.status === 'in_discussion') {
+      activeApplicationsByVacancy.set(application.vacancy_id, application)
+    }
+  }
+  const sortedTeams = myTeam
+    ? [...teams].sort((a, b) => {
+        if (a.id === myTeam.id) return -1
+        if (b.id === myTeam.id) return 1
+        return 0
+      })
+    : teams
+  const isMyTeamLeader = Boolean(myTeam && myTeam.leader_id === session?.id)
 
   const deadlinePassed = event.registration_deadline
     ? new Date(event.registration_deadline).getTime() < Date.now()
@@ -145,12 +169,52 @@ export function EventDetailPage() {
   const canParticipate = event.is_active && !deadlinePassed
   const isPlatformMember = session?.role === 'member'
   const canJoin = isPlatformMember && canParticipate && !myParticipation
-  const canLeave = Boolean(myParticipation && (myParticipation.status === 'searching' || myTeam))
+  const canLeave = Boolean(myParticipation)
+  const isLeaveTargetLeader = Boolean(leaveTarget && leaveTarget.leader_id === session?.id)
   const canCreateTeam = isPlatformMember && canParticipate && myParticipation?.status !== 'in_team'
 
   const openApplyDialog = (vacancy: VacancyRead) => {
     setApplyTeamTitle(teamById.get(vacancy.team_id)?.title ?? 'Команда')
     setApplyVacancy(vacancy)
+  }
+
+  /** Ищем команду пользователя только по клику: без N+1 запросов при открытии страницы. */
+  const resolveMyTeam = async (): Promise<TeamRead | undefined> => {
+    const led = teams.find((team) => team.leader_id === session?.id)
+    if (led) {
+      return led
+    }
+
+    for (const team of teams) {
+      const members = await queryClient.fetchQuery({
+        queryKey: ['teams', 'members', team.id],
+        queryFn: () => fetchTeamMembers(team.id),
+        staleTime: 30_000,
+      })
+
+      if (members.some((member) => member.user.id === session?.id)) {
+        return team
+      }
+    }
+  }
+
+  const handleLeaveClick = async () => {
+    if (myParticipation?.status === 'searching') {
+      leaveEvent.mutate()
+      return
+    }
+
+    setResolvingLeave(true)
+    try {
+      const team = myTeam ?? (await resolveMyTeam())
+      setLeaveTarget(team ?? null)
+      setLeaveOpen(true)
+    } catch {
+      setLeaveTarget(null)
+      setLeaveOpen(true)
+    } finally {
+      setResolvingLeave(false)
+    }
   }
 
   const searching = searchingQuery.data ?? []
@@ -181,15 +245,8 @@ export function EventDetailPage() {
             {canLeave ? (
               <Button
                 variant="outline"
-                disabled={leaveEvent.isPending}
-                onClick={() => {
-                  if (myParticipation?.status === 'searching') {
-                    leaveEvent.mutate()
-                    return
-                  }
-
-                  setLeaveOpen(true)
-                }}
+                disabled={leaveEvent.isPending || resolvingLeave}
+                onClick={() => void handleLeaveClick()}
               >
                 Покинуть мероприятие
               </Button>
@@ -240,8 +297,13 @@ export function EventDetailPage() {
                 />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {teams.map((team) => (
-                    <TeamCard key={team.id} team={team} />
+                  {sortedTeams.map((team) => (
+                    <TeamCard
+                      key={team.id}
+                      team={team}
+                      isMyTeam={team.id === myTeam?.id}
+                      isLeader={team.leader_id === session?.id}
+                    />
                   ))}
                 </div>
               )}
@@ -267,6 +329,40 @@ export function EventDetailPage() {
               <ul className="divide-y divide-zinc-100">
                 {vacancies.map((vacancy) => {
                   const team = teamById.get(vacancy.team_id)
+                  const application = activeApplicationsByVacancy.get(vacancy.id)
+                  const isMyTeamVacancy = vacancy.team_id === myTeam?.id
+
+                  let action: ReactNode = null
+
+                  if (isMyTeamVacancy) {
+                    action = (
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/teams/$teamId" params={{ teamId: vacancy.team_id }}>
+                          Управлять →
+                        </Link>
+                      </Button>
+                    )
+                  } else if (myParticipation?.status === 'in_team') {
+                    action = <span className="text-xs text-zinc-500">Вы уже в команде</span>
+                  } else if (application) {
+                    action =
+                      application.direction === 'invite' ? (
+                        <Link
+                          to="/applications"
+                          className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                        >
+                          Вас пригласили →
+                        </Link>
+                      ) : (
+                        <StatusBadge status={application.status} />
+                      )
+                  } else if (isPlatformMember && canParticipate) {
+                    action = (
+                      <Button size="sm" onClick={() => openApplyDialog(vacancy)}>
+                        Откликнуться
+                      </Button>
+                    )
+                  }
 
                   return (
                     <li
@@ -275,8 +371,11 @@ export function EventDetailPage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-950">{vacancy.title}</p>
-                        <p className="mt-0.5 text-xs text-zinc-500">
-                          {vacancy.required_role} ·{' '}
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                          <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 font-mono text-xs text-zinc-600">
+                            {vacancy.required_role}
+                          </span>
+                          <span aria-hidden="true">·</span>
                           {team ? (
                             <Link
                               to="/teams/$teamId"
@@ -288,17 +387,13 @@ export function EventDetailPage() {
                           ) : (
                             'Команда'
                           )}
-                        </p>
+                        </div>
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">
                           {vacancy.description}
                         </p>
                       </div>
 
-                      {isPlatformMember && canParticipate ? (
-                        <Button size="sm" onClick={() => openApplyDialog(vacancy)}>
-                          Откликнуться
-                        </Button>
-                      ) : null}
+                      {action}
                     </li>
                   )
                 })}
@@ -378,6 +473,34 @@ export function EventDetailPage() {
         </div>
 
         <div className="space-y-4">
+          {myTeam ? (
+            <Card className="gap-4 py-5 shadow-none">
+              <CardHeader className="px-5">
+                <CardTitle className="text-sm font-semibold text-zinc-950">Моя команда</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 px-5">
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    to="/teams/$teamId"
+                    params={{ teamId: myTeam.id }}
+                    className="min-w-0 truncate text-sm font-medium text-zinc-950 hover:text-blue-600"
+                  >
+                    {myTeam.title}
+                  </Link>
+                  <StatusBadge status={myTeam.status} />
+                </div>
+                <p className="text-xs text-zinc-500">
+                  Ваша роль: {isMyTeamLeader ? 'Лидер' : 'Участник'}
+                </p>
+                <Button asChild className="w-full">
+                  <Link to="/teams/$teamId" params={{ teamId: myTeam.id }}>
+                    Управлять командой
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card className="gap-3 py-5 shadow-none">
             <CardHeader className="px-5">
               <CardTitle className="text-sm font-semibold text-zinc-950">О мероприятии</CardTitle>
@@ -423,18 +546,6 @@ export function EventDetailPage() {
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                   Вы участвуете: {PARTICIPANT_STATUS_LABELS[myParticipation.status].toLowerCase()}
                   {myParticipation.desired_role ? ` · ${myParticipation.desired_role}` : ''}
-                  {myTeam ? (
-                    <span className="mt-1 block">
-                      Моя команда:{' '}
-                      <Link
-                        to="/teams/$teamId"
-                        params={{ teamId: myTeam.id }}
-                        className="font-medium underline underline-offset-2"
-                      >
-                        {myTeam.title}
-                      </Link>
-                    </span>
-                  ) : null}
                 </div>
               ) : null}
             </CardContent>
@@ -444,32 +555,44 @@ export function EventDetailPage() {
 
       <ConfirmDialog
         open={leaveOpen}
-        onOpenChange={setLeaveOpen}
+        onOpenChange={(open) => {
+          setLeaveOpen(open)
+          if (!open) {
+            setLeaveTarget(null)
+          }
+        }}
         title="Покинуть мероприятие?"
         description={
-          myTeam
-            ? isMyTeamLeader
-              ? `Вы лидер команды «${myTeam.title}». Команда будет удалена, а вы выйдете из мероприятия.`
-              : `Вы состоите в команде «${myTeam.title}». Вы покинете команду и мероприятие.`
+          leaveTarget
+            ? isLeaveTargetLeader
+              ? `Вы лидер команды «${leaveTarget.title}». Команда будет удалена, а вы выйдете из мероприятия.`
+              : `Вы состоите в команде «${leaveTarget.title}». Вы покинете команду и мероприятие.`
             : 'Вы выйдете из списка участников мероприятия.'
         }
         confirmLabel="Покинуть"
         destructive
-        isPending={leaveEvent.isPending || leaveTeam.isPending || deleteTeam.isPending}
+        isPending={leaving || leaveEvent.isPending}
         onConfirm={async () => {
+          setLeaving(true)
           try {
-            if (myTeam) {
-              if (isMyTeamLeader) {
-                await deleteTeam.mutateAsync()
+            if (leaveTarget) {
+              if (isLeaveTargetLeader) {
+                await deleteTeamRequest(leaveTarget.id)
               } else {
-                await leaveTeam.mutateAsync()
+                await leaveTeamRequest(leaveTarget.id)
               }
+
+              void queryClient.invalidateQueries({ queryKey: ['teams'] })
+              void queryClient.invalidateQueries({ queryKey: ['session'] })
             }
 
             await leaveEvent.mutateAsync()
             setLeaveOpen(false)
+            setLeaveTarget(null)
           } catch {
             // Ошибка уже показана тостом в src/api/client.ts.
+          } finally {
+            setLeaving(false)
           }
         }}
       />

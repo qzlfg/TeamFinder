@@ -93,15 +93,41 @@ class TeamRepository:
         return team
 
     async def get_teams(
-        self,
-        *,
-        statuses: list[TeamStatus] | None,
-        event_id: UUID | None,
-        only_pet_projects: bool,
-        skip: int,
-        limit: int,
-    ) -> Sequence[Team]:
-        statement = select(Team)
+    self,
+    *,
+    user_id: UUID | None = None,
+    statuses: list[TeamStatus] | None = None,
+    event_id: UUID | None = None,
+    only_pet_projects: bool = False,
+    skip: int = 0,
+    limit: int = 50,
+) -> Sequence[tuple[Team, int, int]]:
+        members_count_sq = (
+            select(func.count(TeamMember.id))
+            .where(TeamMember.team_id == Team.id)
+            .correlate(Team)
+            .scalar_subquery()
+        )
+        open_vacancies_count_sq = (
+            select(func.count(Vacancy.id))
+            .where(
+                Vacancy.team_id == Team.id,
+                Vacancy.status == VacancyStatus.OPEN,
+            )
+            .correlate(Team)
+            .scalar_subquery()
+        )
+
+        statement = select(
+            Team,
+            members_count_sq.label("members_count"),
+            open_vacancies_count_sq.label("open_vacancies_count"),
+        )
+
+        if user_id is not None:
+            statement = statement.join(
+                TeamMember, TeamMember.team_id == Team.id
+            ).where(TeamMember.user_id == user_id)
 
         if statuses:
             statement = statement.where(col(Team.status).in_(statuses))
@@ -285,3 +311,5 @@ class TeamRepository:
             .values(status=VacancyStatus.CLOSED)
         )
         await self.session.exec(statement)
+
+    #async def 

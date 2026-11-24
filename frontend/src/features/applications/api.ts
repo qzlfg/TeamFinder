@@ -5,8 +5,14 @@ import { client, unwrap } from '@/api/client'
 import type { components } from '@/api/schema'
 import type { ApplicationStatus } from '@/lib/labels'
 
-export type ApplicationRead = components['schemas']['ApplicationRead']
+export type ApplicationRead = components['schemas']['ApplicationDetailRead']
 export type ApplicationApplyCreate = components['schemas']['ApplicationApplyCreate']
+export type ApplicationAction = Extract<ApplicationStatus, 'accepted' | 'cancelled' | 'rejected'>
+
+/** Активная заявка, по которой ещё можно выполнить действие. */
+export function isActiveApplication(status: ApplicationStatus): boolean {
+  return status === 'pending' || status === 'in_discussion'
+}
 
 async function fetchMyApplications(): Promise<ApplicationRead[]> {
   const result = await client.GET('/api/v1/applications/me', {
@@ -70,7 +76,22 @@ export function useSetApplicationStatus() {
       void queryClient.invalidateQueries({ queryKey: ['session'] })
 
       if (application.status === 'accepted') {
-        toast.success('Заявка принята', { description: 'Участник добавлен в команду.' })
+        const isInvite = application.direction === 'invite'
+        toast.success(isInvite ? 'Приглашение принято' : 'Заявка принята', {
+          description: isInvite ? 'Вы вступили в команду.' : 'Участник добавлен в команду.',
+        })
+        return
+      }
+
+      if (application.status === 'cancelled') {
+        toast.success('Отклик отозван')
+        return
+      }
+
+      if (application.status === 'rejected') {
+        toast.success(
+          application.direction === 'invite' ? 'Приглашение отклонено' : 'Заявка отклонена',
+        )
         return
       }
 

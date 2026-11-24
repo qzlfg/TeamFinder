@@ -12,7 +12,7 @@ export type TeamCreate = components['schemas']['TeamCreate']
 export type TeamUpdate = components['schemas']['TeamUpdate']
 export type VacancyCreate = components['schemas']['VacancyCreate']
 export type VacancyUpdate = components['schemas']['VacancyUpdate']
-export type ApplicationRead = components['schemas']['ApplicationRead']
+export type ApplicationRead = components['schemas']['ApplicationDetailRead']
 
 async function fetchTeams(status?: TeamStatus): Promise<TeamRead[]> {
   const result = await client.GET('/api/v1/teams', {
@@ -26,6 +26,26 @@ export function useTeams(status?: TeamStatus) {
   return useQuery({
     queryKey: ['teams', { status }],
     queryFn: () => fetchTeams(status),
+    staleTime: 30_000,
+  })
+}
+
+async function fetchMyTeams(eventId?: string): Promise<TeamRead[]> {
+  // Временный cast: маршрут GET /teams/me ещё не попал в schema.d.ts.
+  const path = '/api/v1/teams/me' as '/api/v1/teams/{team_id}/me'
+  const result = await client.GET(path, {
+    params: { query: { event_id: eventId, limit: 50 } },
+    headers: { 'x-silent-error': '1' },
+  })
+
+  return unwrap(result)
+}
+
+export function useMyTeams(eventId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['teams', 'my', eventId ?? 'all'],
+    queryFn: () => fetchMyTeams(eventId),
+    enabled: Boolean(enabled),
     staleTime: 30_000,
   })
 }
@@ -98,6 +118,7 @@ export function useCreateTeam() {
     },
     onSuccess: (team) => {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Команда создана', { description: team.title })
     },
   })
@@ -134,12 +155,13 @@ export function useCreateVacancy(teamId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Вакансия открыта')
     },
   })
 }
 
-export function useUpdateVacancy(teamId: string) {
+export function useUpdateVacancy() {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -151,23 +173,26 @@ export function useUpdateVacancy(teamId: string) {
       return unwrap(result)
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['teams', 'vacancies', teamId] })
+      void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Вакансия обновлена')
     },
   })
 }
 
-export function useDeleteVacancy(teamId: string) {
+export function useDeleteVacancy() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (vacancyId: string) => {
-      await client.DELETE('/api/v1/vacancies/{vacancy_id}', {
+      const result = await client.DELETE('/api/v1/vacancies/{vacancy_id}', {
         params: { path: { vacancy_id: vacancyId } },
       })
+      unwrap(result)
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['teams', 'vacancies', teamId] })
+      void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Вакансия удалена')
     },
   })
@@ -206,12 +231,14 @@ export function useRemoveTeamMember(teamId: string) {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      await client.DELETE('/api/v1/teams/{team_id}/members/{user_id}', {
+      const result = await client.DELETE('/api/v1/teams/{team_id}/members/{user_id}', {
         params: { path: { team_id: teamId, user_id: userId } },
       })
+      unwrap(result)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Участник исключён')
     },
   })

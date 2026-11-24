@@ -17,8 +17,14 @@ from src.modules.events.exceptions import (
 )
 from src.modules.events.models import Event, EventParticipant
 from src.modules.events.repository import EventRepository
-from src.modules.events.schemas import EventCreate, EventParticipantCreate, EventUpdate
+from src.modules.events.schemas import (
+    EventCreate,
+    EventParticipantCreate,
+    EventParticipantDetailRead,
+    EventUpdate,
+)
 from src.modules.users.models import User
+from src.modules.users.schemas import UserPublicRead
 
 
 class EventService:
@@ -93,8 +99,19 @@ class EventService:
         await self.event_repo.remove_participant(participant)
         return participant
 
-    async def get_all_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[EventParticipant]:
-        return await self.event_repo.get_participants(event_id, status, skip, limit)
+    async def get_all_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> list[EventParticipantDetailRead]:
+        raw_rows = await self.event_repo.get_participants(event_id, status, skip, limit)
+        return [
+            EventParticipantDetailRead(
+                id=participant.id,
+                event_id=participant.event_id,
+                participant_id=participant.participant_id,
+                status=participant.status,
+                desired_role=participant.desired_role,
+                user=UserPublicRead.model_validate(user),
+            )
+            for participant, user in raw_rows
+        ]
 
     async def get_search_suggestions(self, raw_query: str) -> Sequence[Event]:
         query = raw_query.strip()

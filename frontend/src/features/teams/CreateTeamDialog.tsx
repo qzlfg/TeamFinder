@@ -28,10 +28,11 @@ import { EVENT_TYPE_LABELS } from '@/lib/labels'
 import { useCreateTeam } from './api'
 
 const teamSchema = z.object({
-  title: z.string().min(1, 'Укажите название').max(255, 'Максимум 255 символов'),
+  title: z.string().trim().min(1, 'Укажите название').max(255, 'Максимум 255 символов'),
   project_description: z.string().optional(),
   repository_url: z
     .string()
+    .trim()
     .optional()
     .refine(
       (value) => !value || /^https?:\/\/\S+$/.test(value),
@@ -57,8 +58,8 @@ function emptyToNull(value: string | undefined): string | null {
 export function CreateTeamDialog({ open, onOpenChange, initialEventId }: CreateTeamDialogProps) {
   const navigate = useNavigate()
   const createTeam = useCreateTeam()
-  const { data: events = [] } = useEvents({})
   const isEventLocked = Boolean(initialEventId)
+  const { data: events = [] } = useEvents({}, open && !isEventLocked)
 
   const form = useForm<TeamValues>({
     resolver: zodResolver(teamSchema),

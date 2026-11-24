@@ -372,6 +372,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get All Personal Teams */
+        get: operations["get_all_personal_teams_api_v1_teams_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams/{team_id}": {
         parameters: {
             query?: never;
@@ -844,6 +861,50 @@ export interface components {
             /** Cover Letter */
             cover_letter?: string | null;
         };
+        /** ApplicationDetailRead */
+        ApplicationDetailRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Vacancy Id
+             * Format: uuid
+             */
+            vacancy_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            direction: components["schemas"]["ApplicationDirection"];
+            /** Cover Letter */
+            cover_letter: string | null;
+            status: components["schemas"]["ApplicationStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Vacancy Title */
+            vacancy_title: string;
+            /** Vacancy Required Role */
+            vacancy_required_role: string;
+            /**
+             * Team Id
+             * Format: uuid
+             */
+            team_id: string;
+            /** Team Title */
+            team_title: string;
+            user?: components["schemas"]["UserPublicRead"] | null;
+        };
         /**
          * ApplicationDirection
          * @enum {string}
@@ -951,6 +1012,31 @@ export interface components {
         EventParticipantCreate: {
             /** Desired Role */
             desired_role?: string | null;
+        };
+        /**
+         * EventParticipantDetailRead
+         * @description Расширенная карточка одиночки для витрины поиска команд (с профилем).
+         */
+        EventParticipantDetailRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /**
+             * Participant Id
+             * Format: uuid
+             */
+            participant_id: string;
+            status: components["schemas"]["ParticipantStatus"];
+            /** Desired Role */
+            desired_role: string | null;
+            user: components["schemas"]["UserPublicRead"];
         };
         /**
          * EventParticipantRead
@@ -1204,6 +1290,16 @@ export interface components {
             status: components["schemas"]["TeamStatus"];
             /** Created At */
             created_at: string | null;
+            /**
+             * Members Count
+             * @default 0
+             */
+            members_count: number;
+            /**
+             * Open Vacancies Count
+             * @default 0
+             */
+            open_vacancies_count: number;
         };
         /**
          * TeamStatus
@@ -1414,6 +1510,11 @@ export interface components {
             description: string;
             /** Required Role */
             required_role: string;
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["VacancySkillInput"][];
         };
         /** VacancyRead */
         VacancyRead: {
@@ -1440,6 +1541,16 @@ export interface components {
              */
             created_at: string;
         };
+        /** VacancySkillInput */
+        VacancySkillInput: {
+            /** Skill Id */
+            skill_id: number;
+            /**
+             * Is Required
+             * @default true
+             */
+            is_required: boolean;
+        };
         /**
          * VacancyStatus
          * @enum {string}
@@ -1454,6 +1565,8 @@ export interface components {
             /** Required Role */
             required_role?: string | null;
             status?: components["schemas"]["VacancyStatus"] | null;
+            /** Skills */
+            skills?: components["schemas"]["VacancySkillInput"][] | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2066,7 +2179,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventParticipantRead"][];
+                    "application/json": components["schemas"]["EventParticipantDetailRead"][];
                 };
             };
             /** @description Validation Error */
@@ -2269,6 +2382,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_all_personal_teams_api_v1_teams_me_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["TeamStatus"][] | null;
+                event_id?: string | null;
+                only_pet_projects?: boolean;
+                skip?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamRead"][];
                 };
             };
             /** @description Validation Error */
@@ -2791,7 +2939,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApplicationRead"][];
+                    "application/json": components["schemas"]["ApplicationDetailRead"][];
                 };
             };
             /** @description Validation Error */
@@ -2828,7 +2976,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApplicationRead"][];
+                    "application/json": components["schemas"]["ApplicationDetailRead"][];
                 };
             };
             /** @description Validation Error */
@@ -2859,7 +3007,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApplicationRead"];
+                    "application/json": components["schemas"]["ApplicationDetailRead"];
                 };
             };
             /** @description Validation Error */

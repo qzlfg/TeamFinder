@@ -16,9 +16,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { useCreateVacancy } from './api'
 
 const vacancySchema = z.object({
-  title: z.string().min(1, 'Укажите заголовок').max(255, 'Максимум 255 символов'),
-  description: z.string().min(1, 'Добавьте описание').max(1000, 'Максимум 1000 символов'),
-  required_role: z.string().min(1, 'Укажите роль').max(255, 'Максимум 255 символов'),
+  title: z.string().trim().min(1, 'Укажите заголовок').max(255, 'Максимум 255 символов'),
+  description: z.string().trim().min(1, 'Добавьте описание').max(1000, 'Максимум 1000 символов'),
+  required_role: z.string().trim().min(1, 'Укажите роль').max(255, 'Максимум 255 символов'),
 })
 
 type VacancyValues = z.infer<typeof vacancySchema>
@@ -44,6 +44,7 @@ export function CreateVacancyDialog({ teamId, open, onOpenChange }: CreateVacanc
         title: values.title.trim(),
         description: values.description.trim(),
         required_role: values.required_role.trim(),
+        skills: [],
       })
       onOpenChange(false)
       form.reset()

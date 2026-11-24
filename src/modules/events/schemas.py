@@ -70,4 +70,4 @@ class EventParticipantRead(SQLModel):
 
 class EventParticipantDetailRead(EventParticipantRead):
     """Расширенная карточка одиночки для витрины поиска команд (с профилем)."""
-    participant: UserPublicRead | None = None
+    user: UserPublicRead

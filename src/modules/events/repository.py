@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, func, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -8,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.common.enums import EventType, ParticipantStatus
 from src.modules.events.models import Event, EventParticipant
 from src.modules.events.schemas import EventUpdate
+from src.modules.users.models import User
 
 
 class EventRepository:
@@ -97,10 +99,14 @@ class EventRepository:
         return res.one_or_none()
 
 
-    async def get_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[EventParticipant]:
-        statement = select(EventParticipant).where(EventParticipant.event_id == event_id).offset(skip).limit(limit)
+    async def get_participants(self, event_id: UUID, status: ParticipantStatus | None, skip: int, limit: int) -> Sequence[tuple[EventParticipant, User]]:
+        statement = (select(EventParticipant, User)
+                     .join(User, EventParticipant.participant_id == User.id)
+                     .options(selectinload(User.skills))
+                     .where(EventParticipant.event_id == event_id))
         if status:
             statement = statement.where(EventParticipant.status == status)
+        statement = statement.offset(skip).limit(limit)
         res = await self.session.exec(statement)
         return res.all()
 

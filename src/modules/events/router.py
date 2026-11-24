@@ -15,6 +15,7 @@ from src.modules.events.dependencies import get_event_service
 from src.modules.events.schemas import (
     EventCreate,
     EventParticipantCreate,
+    EventParticipantDetailRead,
     EventParticipantRead,
     EventRead,
     EventUpdate,
@@ -102,7 +103,7 @@ async def join_event_as_solo(
 
 @router.get(
     "/events/{event_id}/participants",
-    response_model=list[EventParticipantRead],
+    response_model=list[EventParticipantDetailRead],
     dependencies=[Depends(get_current_user)],
 )
 async def get_all_participants(

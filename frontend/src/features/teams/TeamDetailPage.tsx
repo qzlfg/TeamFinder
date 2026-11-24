@@ -16,7 +16,7 @@ import { ApplyDialog } from '@/features/applications/ApplyDialog'
 import { useSetApplicationStatus } from '@/features/applications/api'
 import { useSession } from '@/features/auth/session'
 import { useEvent } from '@/features/events/api'
-import type { ApplicationRead, VacancyRead } from '@/features/teams/api'
+import type { ApplicationRead, TeamMemberDetailRead, VacancyRead } from '@/features/teams/api'
 import {
   useDeleteTeam,
   useDeleteVacancy,
@@ -61,8 +61,8 @@ export function TeamDetailPage() {
   const eventQuery = useEvent(team?.event_id)
 
   const deleteTeam = useDeleteTeam(teamId)
-  const updateVacancy = useUpdateVacancy(teamId)
-  const deleteVacancy = useDeleteVacancy(teamId)
+  const updateVacancy = useUpdateVacancy()
+  const deleteVacancy = useDeleteVacancy()
   const removeMember = useRemoveTeamMember(teamId)
   const leaveTeam = useLeaveTeam(teamId)
   const setApplicationStatus = useSetApplicationStatus()
@@ -70,6 +70,9 @@ export function TeamDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [vacancyOpen, setVacancyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [deleteVacancyTarget, setDeleteVacancyTarget] = useState<VacancyRead | null>(null)
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<TeamMemberDetailRead | null>(null)
   const [applyVacancy, setApplyVacancy] = useState<VacancyRead | null>(null)
 
   if (teamQuery.isPending) {
@@ -102,10 +105,6 @@ export function TeamDetailPage() {
   const vacancies = vacanciesQuery.data ?? []
   const applications = applicationsQuery.data ?? []
   const leader = members.find((member) => member.user.id === team.leader_id)
-
-  const vacancyTitle = (vacancyId: string) =>
-    vacancies.find((vacancy) => vacancy.id === vacancyId)?.title ??
-    `вакансия ${vacancyId.slice(0, 8)}`
 
   const handleApplication = (application: ApplicationRead, status: ApplicationStatus) => {
     setApplicationStatus.mutate({ applicationId: application.id, status })
@@ -156,10 +155,7 @@ export function TeamDetailPage() {
                 variant="outline"
                 className="text-destructive hover:text-destructive"
                 disabled={leaveTeam.isPending}
-                onClick={async () => {
-                  await leaveTeam.mutateAsync()
-                  await navigate({ to: '/teams' })
-                }}
+                onClick={() => setLeaveOpen(true)}
               >
                 Покинуть команду
               </Button>
@@ -259,7 +255,7 @@ export function TeamDetailPage() {
                           className="size-8 text-zinc-400 hover:text-destructive"
                           aria-label="Удалить вакансию"
                           disabled={deleteVacancy.isPending}
-                          onClick={() => deleteVacancy.mutate(vacancy.id)}
+                          onClick={() => setDeleteVacancyTarget(vacancy)}
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -304,18 +300,33 @@ export function TeamDetailPage() {
                     return (
                       <li
                         key={application.id}
-                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+                        className="flex flex-wrap items-start justify-between gap-3 px-5 py-3"
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-zinc-950">
                             {APPLICATION_DIRECTION_LABELS[application.direction]} ·{' '}
-                            <span className="font-mono text-xs text-zinc-500">
-                              {application.user_id.slice(0, 8)}
-                            </span>
+                            {application.user ? (
+                              <Link
+                                to="/users/$userId"
+                                params={{ userId: application.user.id }}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {application.user.first_name} {application.user.last_name}
+                              </Link>
+                            ) : (
+                              <span className="font-mono text-xs text-zinc-500">
+                                {application.user_id.slice(0, 8)}
+                              </span>
+                            )}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-zinc-500">
-                            {vacancyTitle(application.vacancy_id)}
+                            {application.vacancy_title}
                           </p>
+                          {application.cover_letter ? (
+                            <p className="mt-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700 whitespace-pre-wrap">
+                              {application.cover_letter}
+                            </p>
+                          ) : null}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -323,14 +334,16 @@ export function TeamDetailPage() {
 
                           {isActive && application.direction === 'apply' ? (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={setApplicationStatus.isPending}
-                                onClick={() => handleApplication(application, 'in_discussion')}
-                              >
-                                В обсуждение
-                              </Button>
+                              {application.status === 'pending' ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={setApplicationStatus.isPending}
+                                  onClick={() => handleApplication(application, 'in_discussion')}
+                                >
+                                  В обсуждение
+                                </Button>
+                              ) : null}
                               <Button
                                 size="sm"
                                 disabled={setApplicationStatus.isPending}
@@ -472,7 +485,7 @@ export function TeamDetailPage() {
                         className="size-8 text-zinc-400 hover:text-destructive"
                         aria-label="Исключить участника"
                         disabled={removeMember.isPending}
-                        onClick={() => removeMember.mutate(member.user.id)}
+                        onClick={() => setRemoveMemberTarget(member)}
                       >
                         <UserMinus className="size-4" />
                       </Button>
@@ -504,6 +517,81 @@ export function TeamDetailPage() {
         onConfirm={async () => {
           try {
             await deleteTeam.mutateAsync()
+            await navigate({ to: '/teams' })
+          } catch {
+            // Ошибка уже показана тостом в src/api/client.ts.
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteVacancyTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteVacancyTarget(null)
+          }
+        }}
+        title="Удалить вакансию?"
+        description={`Вакансия «${deleteVacancyTarget?.title ?? ''}» будет удалена без возможности восстановления.`}
+        confirmLabel="Удалить"
+        destructive
+        isPending={deleteVacancy.isPending}
+        onConfirm={async () => {
+          if (!deleteVacancyTarget) {
+            return
+          }
+
+          try {
+            await deleteVacancy.mutateAsync(deleteVacancyTarget.id)
+            setDeleteVacancyTarget(null)
+          } catch {
+            // Ошибка уже показана тостом в src/api/client.ts.
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={removeMemberTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveMemberTarget(null)
+          }
+        }}
+        title="Исключить участника?"
+        description={
+          removeMemberTarget
+            ? `Участник ${removeMemberTarget.user.first_name} ${removeMemberTarget.user.last_name} будет исключён из команды и вернётся в поиск.`
+            : ''
+        }
+        confirmLabel="Исключить"
+        destructive
+        isPending={removeMember.isPending}
+        onConfirm={async () => {
+          if (!removeMemberTarget) {
+            return
+          }
+
+          try {
+            await removeMember.mutateAsync(removeMemberTarget.user.id)
+            setRemoveMemberTarget(null)
+          } catch {
+            // Ошибка уже показана тостом в src/api/client.ts.
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        title="Покинуть команду?"
+        description="Вы выйдете из состава команды. Если она привязана к мероприятию, вы вернётесь в поиск."
+        confirmLabel="Покинуть"
+        destructive
+        isPending={leaveTeam.isPending}
+        onConfirm={async () => {
+          try {
+            await leaveTeam.mutateAsync()
+            setLeaveOpen(false)
             await navigate({ to: '/teams' })
           } catch {
             // Ошибка уже показана тостом в src/api/client.ts.

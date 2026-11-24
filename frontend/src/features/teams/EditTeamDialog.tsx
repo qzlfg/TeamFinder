@@ -28,10 +28,11 @@ import type { TeamRead } from './api'
 import { useUpdateTeam } from './api'
 
 const teamSchema = z.object({
-  title: z.string().min(1, 'Укажите название').max(255, 'Максимум 255 символов'),
+  title: z.string().trim().min(1, 'Укажите название').max(255, 'Максимум 255 символов'),
   project_description: z.string().optional(),
   repository_url: z
     .string()
+    .trim()
     .optional()
     .refine(
       (value) => !value || /^https?:\/\/\S+$/.test(value),

@@ -6,7 +6,7 @@ from pydantic import AnyHttpUrl, model_validator
 from sqlmodel import Field, SQLModel
 
 from src.common.enums import TeamStatus, VacancyStatus
-from src.modules.users.schemas import UserPublicRead
+from src.modules.users.schemas import SkillRead, UserPublicRead
 
 
 class TeamCreate(SQLModel):
@@ -45,6 +45,8 @@ class TeamRead(SQLModel):
     repository_url: AnyHttpUrl | None
     status: TeamStatus
     created_at: datetime | None
+    members_count: int = 0
+    open_vacancies_count: int = 0
 
 
 class TeamMemberCreate(SQLModel):
@@ -78,6 +80,7 @@ class VacancyCreate(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=1, max_length=1000)
     required_role: str = Field(min_length=1, max_length=255)
+    skills: list[VacancySkillInput] = []
 
 
 class VacancyUpdate(SQLModel):
@@ -85,6 +88,7 @@ class VacancyUpdate(SQLModel):
     description: str | None = Field(default=None, min_length=1, max_length=1000)
     required_role: str | None = Field(default=None, min_length=1, max_length=255)
     status: VacancyStatus | None = None
+    skills: list[VacancySkillInput] | None = None
 
     @model_validator(mode="after")
     def validate_not_empty_and_non_nullable(self) -> Self:
@@ -99,6 +103,8 @@ class VacancyUpdate(SQLModel):
             raise ValueError("Требуемая роль не может быть пустой")
         if "status" in self.model_fields_set and self.status is None:
             raise ValueError("Статус вакансии не может быть пустым")
+        if "skills" in self.model_fields_set and self.skills is None:
+                    raise ValueError("Скиллы вакансии не может быть пустым")
 
         return self
 
@@ -111,3 +117,13 @@ class VacancyRead(SQLModel):
     required_role: str
     status: VacancyStatus
     created_at: datetime
+    skills: list[VacancySkillInput]
+
+
+class VacancySkillInput(SQLModel):
+    skill_id: int
+    is_required: bool = True
+
+class VacancySkillRead(SQLModel):
+    skill: SkillRead
+    is_required: bool

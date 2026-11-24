@@ -37,10 +37,11 @@ export async function fetchEvents({ q, type }: EventsFilter): Promise<EventRead[
   return unwrap(result)
 }
 
-export function useEvents(filter: EventsFilter) {
+export function useEvents(filter: EventsFilter, enabled = true) {
   return useQuery({
     queryKey: ['events', filter],
     queryFn: () => fetchEvents(filter),
+    enabled,
     staleTime: 30_000,
   })
 }

@@ -53,11 +53,36 @@ async def get_teams(
     - **Фильтры:** множественный выбор по `status`, привязка к `event_id` или флаг `only_pet_projects`.
     """
     return await team_service.get_all_teams(
+        user_id=None,
         statuses=status,
         event_id=event_id,
         only_pet_projects=only_pet_projects,
         skip=skip,
         limit=limit,
+    )
+
+@router.get(
+    "/teams/me",
+    response_model=list[TeamRead],
+    dependencies=[Depends(get_current_user)]
+)
+async def get_all_personal_teams(
+    user: MemberUser,
+    team_service: ServiceDep,
+    #personal: Annotated[bool | None, Query()] = None,
+    status: Annotated[list[TeamStatus] | None, Query()] = None,
+    event_id: Annotated[UUID | None, Query()] = None,
+    only_pet_projects: Annotated[bool, Query()] = False,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return await team_service.get_all_teams(
+        user_id=user.id,
+        statuses=status,
+        event_id=event_id,
+        only_pet_projects=only_pet_projects,
+        skip=skip,
+        limit=limit
     )
 
 
@@ -79,6 +104,7 @@ async def create_team(
       а при указании `event_id` его статус в `event_participants` переводится в `IN_TEAM`.
     """
     return await team_service.create_team(user_id=user.id, team_in=team_in)
+
 
 
 @router.get(

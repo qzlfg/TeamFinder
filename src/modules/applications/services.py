@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -24,6 +23,7 @@ from src.modules.applications.repository import (
 )
 from src.modules.applications.schemas import (
     ApplicationApplyCreate,
+    ApplicationDetailRead,
     ApplicationInviteCreate,
     ApplicationStatusUpdate,
 )
@@ -50,6 +50,7 @@ from src.modules.teams.repository import TeamRepository
 from src.modules.users.exceptions import UserNotFoundError
 from src.modules.users.models import User
 from src.modules.users.repository import UserRepository
+from src.modules.users.schemas import UserPublicRead
 
 
 class ApplicationService:
@@ -143,14 +144,27 @@ class ApplicationService:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[tuple[Application, str, str, UUID, str]]:
-        return await self.app_repo.get_user_applications(
+    ) -> list[tuple[Application, str, str, UUID, str]]:
+        raw_rows = await self.app_repo.get_user_applications(
             user_id=current_user.id,
             direction=direction,
             statuses=statuses,
             skip=skip,
             limit=limit,
         )
+
+        return [
+            ApplicationDetailRead(
+                **app.model_dump(),
+                vacancy_title=vacanacy_title,
+                vacancy_required_role=vacancy_required_role,
+                team_id=team_id,
+                team_title=team_title,
+                user=UserPublicRead.model_validate(current_user)
+
+            )
+            for app, vacanacy_title, vacancy_required_role, team_id, team_title in raw_rows
+        ]
 
     async def get_team_applications(
         self,
@@ -162,7 +176,7 @@ class ApplicationService:
         statuses: list[ApplicationStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[tuple[Application, str, str, UUID, str, User]]:
+    ) -> list[tuple[Application, str, str, UUID, str, User]]:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise TeamNotFoundError()
@@ -170,7 +184,7 @@ class ApplicationService:
         if current_user.role != UserRole.ADMIN and team.leader_id != current_user.id:
             raise TeamForbiddenError()
 
-        return await self.app_repo.get_team_applications(
+        raw_rows = await self.app_repo.get_team_applications(
             team_id=team_id,
             vacancy_id=vacancy_id,
             direction=direction,
@@ -179,14 +193,26 @@ class ApplicationService:
             limit=limit,
         )
 
+        return [
+            ApplicationDetailRead(
+                **app.model_dump(),
+                vacancy_tilte=vacancy_title,
+                vacancy_required_role=vacancy_required_role,
+                team_id=team_id,
+                team_title=team_title,
+                user=UserPublicRead.model_validate(user)
+            )
+            for app, vacancy_title, vacancy_required_role, team_id, team_title, user in raw_rows
+        ]
+
     async def get_application_by_id(
         self, application_id: UUID, current_user: User
     ) -> tuple[Application, str, str, UUID, str, User] | None:
-        application = await self.app_repo.get_by_id(application_id)
-        if not application:
+        rows = await self.app_repo.get_by_id(application_id)
+        if not rows:
             raise ApplicationNotFoundError()
 
-        vacancy = await self.team_repo.get_vacancy_by_id(application.vacancy_id)
+        vacancy = await self.team_repo.get_vacancy_by_id(rows.vacancy_id)
         if not vacancy:
             raise VacancyNotFoundError()
 
@@ -196,13 +222,13 @@ class ApplicationService:
 
         is_participant = (
             current_user.role == UserRole.ADMIN
-            or current_user.id == application.user_id
+            or current_user.id == rows.user_id
             or current_user.id == team.leader_id
         )
         if not is_participant:
             raise ApplicationForbiddenError()
 
-        return application
+        return rows
 
     async def update_application_status(
         self,

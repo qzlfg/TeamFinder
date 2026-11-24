@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import { Bell, CheckCheck } from 'lucide-react'
 import { useState } from 'react'
 
@@ -19,6 +20,7 @@ interface NotificationBellProps {
 
 /** Колокольчик в шапке: счётчик непрочитанных и поповер со списком. */
 export function NotificationBell({ enabled }: NotificationBellProps) {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const { data: unreadCount = 0 } = useUnreadCount(enabled)
   const { data: notifications = [], isLoading, isError, refetch } = useNotifications(enabled)
@@ -87,6 +89,11 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
                     onClick={() => {
                       if (!notification.is_read) {
                         markRead.mutate(notification.id)
+                      }
+
+                      if (notification.action_url) {
+                        setOpen(false)
+                        void navigate({ to: notification.action_url })
                       }
                     }}
                   >

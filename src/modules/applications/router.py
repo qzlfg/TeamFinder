@@ -7,10 +7,10 @@ from src.common.enums import ApplicationDirection, ApplicationStatus, UserRole
 from src.modules.applications.dependencies import get_application_service
 from src.modules.applications.schemas import (
     ApplicationApplyCreate,
+    ApplicationDetailRead,
     ApplicationInviteCreate,
     ApplicationRead,
     ApplicationStatusUpdate,
-    ApplicationDetailRead
 )
 from src.modules.applications.services import ApplicationService
 from src.modules.auth.dependencies import get_current_user, require_role

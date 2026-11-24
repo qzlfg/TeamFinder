@@ -1,9 +1,18 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
-from sqlmodel import Column, DateTime, Field, SQLModel, UniqueConstraint, func
+from sqlmodel import (
+    Column,
+    DateTime,
+    Field,
+    Relationship,
+    SQLModel,
+    UniqueConstraint,
+    func,
+)
 
 from src.common.enums import TeamStatus, VacancyStatus
+from src.modules.users.models import Skill
 
 
 class Team(SQLModel, table=True):
@@ -76,3 +85,27 @@ class Vacancy(SQLModel, table=True):
         ),
         default_factory=lambda: datetime.now(UTC),
     )
+
+    skill_links: list[VacancySkill] = Relationship(
+        back_populates="vacancy",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class VacancySkill(SQLModel, table=True):
+    __tablename__ = "vacancy_skills"
+
+    vacancy_id: UUID = Field(
+        foreign_key="vacancies.id",
+        primary_key=True,
+        ondelete="CASCADE",
+    )
+    skill_id: int = Field(
+        foreign_key="skills.id",
+        primary_key=True,
+        ondelete="CASCADE",
+    )
+    is_required: bool = Field(default=True, nullable=False)
+
+    vacancy: Vacancy = Relationship(back_populates="skill_links")
+    skill: Skill = Relationship()

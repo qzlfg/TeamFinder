@@ -1,4 +1,4 @@
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { CalendarDays, Plus, UserPlus, Users } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
@@ -25,23 +25,23 @@ import {
 } from '@/features/events/api'
 import { JoinEventDialog } from '@/features/events/JoinEventDialog'
 import type { TeamRead, VacancyRead } from '@/features/teams/api'
-import { deleteTeamRequest, fetchTeamMembers, leaveTeamRequest } from '@/features/teams/api'
+import { deleteTeamRequest, leaveTeamRequest, useMyTeams } from '@/features/teams/api'
 import { CreateTeamDialog } from '@/features/teams/CreateTeamDialog'
 import { TeamCard } from '@/features/teams/TeamCard'
-import { useUsers } from '@/features/users/api'
+import type { UserPublicRead } from '@/features/users/api'
 import { formatDate, getInitials } from '@/lib/format'
 import type { ParticipantStatus } from '@/lib/labels'
 import { EVENT_TYPE_LABELS, PARTICIPANT_STATUS_LABELS } from '@/lib/labels'
 
 interface ParticipantRowProps {
   participantId: string
-  fullName: string
+  user: UserPublicRead
   desiredRole: string | null
   status: ParticipantStatus
 }
 
-function ParticipantRow({ participantId, fullName, desiredRole, status }: ParticipantRowProps) {
-  const [firstName = '', lastName = ''] = fullName.split(' ')
+function ParticipantRow({ participantId, user, desiredRole, status }: ParticipantRowProps) {
+  const fullName = `${user.first_name} ${user.last_name}`
 
   return (
     <li className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-zinc-100/60">
@@ -52,7 +52,7 @@ function ParticipantRow({ participantId, fullName, desiredRole, status }: Partic
       >
         <Avatar className="size-8">
           <AvatarFallback className="border border-zinc-200 bg-zinc-100 font-mono text-xs text-zinc-600">
-            {getInitials(firstName, lastName)}
+            {getInitials(user.first_name, user.last_name)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
@@ -81,37 +81,23 @@ export function EventDetailPage() {
   const vacanciesQuery = useEventVacancies(eventId)
   const searchingQuery = useEventParticipants(eventId, 'searching')
   const inTeamQuery = useEventParticipants(eventId, 'in_team')
-  const { data: users = [] } = useUsers('')
   const leaveEvent = useLeaveEvent(eventId)
   const myApplicationsQuery = useMyApplications()
 
   const queryClient = useQueryClient()
 
-  const teamsForMembership = teamsQuery.data ?? []
   const participantsForMembership = [...(searchingQuery.data ?? []), ...(inTeamQuery.data ?? [])]
   const myParticipation = participantsForMembership.find(
     (participant) => participant.participant_id === session?.id,
   )
-  const ledTeam = teamsForMembership.find((team) => team.leader_id === session?.id)
-  const needsMemberLookup = myParticipation?.status === 'in_team' && !ledTeam
-  const memberQueries = useQueries({
-    queries: teamsForMembership.map((team) => ({
-      queryKey: ['teams', 'members', team.id],
-      queryFn: () => fetchTeamMembers(team.id),
-      enabled: needsMemberLookup,
-      staleTime: 30_000,
-    })),
-  })
-  const memberTeam = teamsForMembership.find((_team, index) =>
-    memberQueries[index]?.data?.some((member) => member.user.id === session?.id),
-  )
-  const myTeam = ledTeam ?? memberTeam
+  const ledTeam = teamsQuery.data?.find((team) => team.leader_id === session?.id)
+  const myTeamsQuery = useMyTeams(eventId, session?.role === 'member')
+  const myTeam = myTeamsQuery.data?.find((team) => team.event_id === eventId) ?? ledTeam
 
   const [joinOpen, setJoinOpen] = useState(false)
   const [teamOpen, setTeamOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [leaveTarget, setLeaveTarget] = useState<TeamRead | null>(null)
-  const [resolvingLeave, setResolvingLeave] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [applyVacancy, setApplyVacancy] = useState<VacancyRead | null>(null)
   const [applyTeamTitle, setApplyTeamTitle] = useState('')
@@ -146,7 +132,6 @@ export function EventDetailPage() {
   const teams = teamsQuery.data ?? []
   const vacancies = vacanciesQuery.data ?? []
   const participants = participantsForMembership
-  const usersById = new Map(users.map((user) => [user.id, user]))
   const teamById = new Map(teams.map((team) => [team.id, team]))
   const activeApplicationsByVacancy = new Map<string, ApplicationRead>()
   for (const application of myApplicationsQuery.data ?? []) {
@@ -178,43 +163,14 @@ export function EventDetailPage() {
     setApplyVacancy(vacancy)
   }
 
-  /** Ищем команду пользователя только по клику: без N+1 запросов при открытии страницы. */
-  const resolveMyTeam = async (): Promise<TeamRead | undefined> => {
-    const led = teams.find((team) => team.leader_id === session?.id)
-    if (led) {
-      return led
-    }
-
-    for (const team of teams) {
-      const members = await queryClient.fetchQuery({
-        queryKey: ['teams', 'members', team.id],
-        queryFn: () => fetchTeamMembers(team.id),
-        staleTime: 30_000,
-      })
-
-      if (members.some((member) => member.user.id === session?.id)) {
-        return team
-      }
-    }
-  }
-
-  const handleLeaveClick = async () => {
+  const handleLeaveClick = () => {
     if (myParticipation?.status === 'searching') {
       leaveEvent.mutate()
       return
     }
 
-    setResolvingLeave(true)
-    try {
-      const team = myTeam ?? (await resolveMyTeam())
-      setLeaveTarget(team ?? null)
-      setLeaveOpen(true)
-    } catch {
-      setLeaveTarget(null)
-      setLeaveOpen(true)
-    } finally {
-      setResolvingLeave(false)
-    }
+    setLeaveTarget(myTeam ?? null)
+    setLeaveOpen(true)
   }
 
   const searching = searchingQuery.data ?? []
@@ -243,11 +199,7 @@ export function EventDetailPage() {
             ) : null}
 
             {canLeave ? (
-              <Button
-                variant="outline"
-                disabled={leaveEvent.isPending || resolvingLeave}
-                onClick={() => void handleLeaveClick()}
-              >
+              <Button variant="outline" disabled={leaveEvent.isPending} onClick={handleLeaveClick}>
                 Покинуть мероприятие
               </Button>
             ) : null}
@@ -419,22 +371,15 @@ export function EventDetailPage() {
                   <p className="mt-2 text-sm text-zinc-500">Пока никто не ищет команду.</p>
                 ) : (
                   <ul className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-200">
-                    {searching.map((participant) => {
-                      const user = usersById.get(participant.participant_id)
-                      const fullName = user
-                        ? `${user.first_name} ${user.last_name}`
-                        : `Участник ${participant.participant_id.slice(0, 8)}`
-
-                      return (
-                        <ParticipantRow
-                          key={participant.id}
-                          participantId={participant.participant_id}
-                          fullName={fullName}
-                          desiredRole={participant.desired_role}
-                          status={participant.status}
-                        />
-                      )
-                    })}
+                    {searching.map((participant) => (
+                      <ParticipantRow
+                        key={participant.id}
+                        participantId={participant.participant_id}
+                        user={participant.user}
+                        desiredRole={participant.desired_role}
+                        status={participant.status}
+                      />
+                    ))}
                   </ul>
                 )}
               </div>
@@ -449,22 +394,15 @@ export function EventDetailPage() {
                   <p className="mt-2 text-sm text-zinc-500">Пока никто не в команде.</p>
                 ) : (
                   <ul className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-200">
-                    {inTeam.map((participant) => {
-                      const user = usersById.get(participant.participant_id)
-                      const fullName = user
-                        ? `${user.first_name} ${user.last_name}`
-                        : `Участник ${participant.participant_id.slice(0, 8)}`
-
-                      return (
-                        <ParticipantRow
-                          key={participant.id}
-                          participantId={participant.participant_id}
-                          fullName={fullName}
-                          desiredRole={participant.desired_role}
-                          status={participant.status}
-                        />
-                      )
-                    })}
+                    {inTeam.map((participant) => (
+                      <ParticipantRow
+                        key={participant.id}
+                        participantId={participant.participant_id}
+                        user={participant.user}
+                        desiredRole={participant.desired_role}
+                        status={participant.status}
+                      />
+                    ))}
                   </ul>
                 )}
               </div>

@@ -31,6 +31,7 @@ from src.modules.teams.schemas import (
     TeamMemberCreate,
     TeamMemberDetailRead,
     TeamMemberUpdate,
+    TeamRead,
     TeamUpdate,
     VacancyCreate,
     VacancyUpdate,
@@ -110,19 +111,29 @@ class TeamService:
 
     async def get_all_teams(
         self,
+        user_id: UUID | None,
         statuses: list[TeamStatus] | None,
         event_id: UUID | None,
         only_pet_projects: bool,
         skip: int,
         limit: int,
-    ) -> Sequence[Team]:
-        return await self.team_repo.get_teams(
+    ) -> list[TeamRead]:
+        rows = await self.team_repo.get_teams(
+            user_id=user_id,
             statuses=statuses,
             event_id=event_id,
             only_pet_projects=only_pet_projects,
             skip=skip,
             limit=limit,
         )
+        return [
+            TeamRead(
+                **team.model_dump(),
+                members_count=members_count,
+                open_vacancies_count=open_vacancies_count,
+            )
+            for team, members_count, open_vacancies_count in rows
+        ]
 
     async def get_team_by_id(
         self,
@@ -136,12 +147,13 @@ class TeamService:
         statuses: list[TeamStatus] | None,
         skip: int,
         limit: int,
-    ) -> Sequence[Team]:
+    ) -> list[TeamRead]:
         event = await self.event_repo.get_by_id(event_id)
         if not event:
             raise EventNotFoundError()
 
-        return await self.team_repo.get_teams(
+        return await self.get_all_teams(
+            user_id=None,
             statuses=statuses,
             event_id=event_id,
             only_pet_projects=False,

@@ -1,7 +1,11 @@
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 from src.modules.users.schemas import NormalizedEmail, UserPrivateRead
 
+
+class PasswordChangeRequest(SQLModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=72)
 
 class LoginRequest(SQLModel):
     """Схема для входа через JSON (SPA / мобильные приложения)."""

@@ -7,14 +7,14 @@ import redis.asyncio as aioredis
 
 from src.core import security
 from src.core.exceptions import BadRequestException, ConflictException
-from src.core.security import REFRESH_TOKEN_EXPIRE_DAYS, decode_token
+from src.core.security import REFRESH_TOKEN_EXPIRE_DAYS, decode_token, verify_password, get_password_hash
 from src.modules.auth.exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
     SessionExpiredError,
     UserAlreadyExistsError,
 )
-from src.modules.auth.schemas import EmailChangeRequest
+from src.modules.auth.schemas import EmailChangeRequest, PasswordChangeRequest
 from src.modules.users.models import User
 from src.modules.users.repository import UserRepository
 from src.modules.users.schemas import UserCreate
@@ -69,7 +69,7 @@ class AuthService:
         user_dict = user_data.model_dump(exclude={"password", "github_url", "portfolio_url"})
         user = User(
             **user_dict,
-            password_hash=security.get_password_hash(user_data.password),
+            password_hash=get_password_hash(user_data.password),
             github_url=str(user_data.github_url) if user_data.github_url else None,
             portfolio_url=str(user_data.portfolio_url) if user_data.portfolio_url else None,
         )
@@ -131,10 +131,10 @@ class AuthService:
         user: User,
         data: EmailChangeRequest,
     ) -> AuthResult:
-        if data.new_email == user.email.lower():
+        if data.new_email.strip().lower() == user.email.lower():
             raise BadRequestException("Новый email совпадает с текущим")
 
-        if not security.verify_password(data.current_password, user.password_hash):
+        if not verify_password(data.current_password, user.password_hash):
             raise InvalidCredentialsError("Неверный текущий пароль")
 
         existing_user = await self.user_repo.get_by_email(data.new_email)
@@ -142,6 +142,30 @@ class AuthService:
             raise ConflictException("Этот email уже используется другим аккаунтом")
 
         user.email = data.new_email
+        updated_user = await self.user_repo.save(user)
+
+        session_keys = [
+            key
+            async for key in self.redis.scan_iter(match=f"session:{updated_user.id}:*")
+        ]
+        if session_keys:
+            await self.redis.delete(*session_keys)
+
+        return await self._issue_session(updated_user)
+
+
+    async def change_password(
+        self,
+        user: User,
+        data: PasswordChangeRequest
+    ) -> AuthResult:
+        if data.new_password == data.current_password:
+            raise BadRequestException("Новый пароль совпадает с текущим")
+
+        if not verify_password(data.current_password, user.password_hash):
+                    raise InvalidCredentialsError("Неверный текущий пароль")
+
+        user.password_hash = get_password_hash(data.new_password)
         updated_user = await self.user_repo.save(user)
 
         session_keys = [

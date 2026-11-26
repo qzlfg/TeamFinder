@@ -8,6 +8,7 @@ from src.modules.auth.dependencies import get_auth_service, get_current_user
 from src.modules.auth.schemas import (
     EmailChangeRequest,
     LoginRequest,
+    PasswordChangeRequest,
     TokenResponse,
 )
 from src.modules.auth.services import AuthResult, AuthService
@@ -129,4 +130,23 @@ async def change_email(
     return TokenResponse(
         access_token=result.access_token,
         user=UserPrivateRead.model_validate(result.user),
+    )
+
+
+@router.post(
+    "/change-password",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def change_password(
+    payload: PasswordChangeRequest,
+    response: Response,
+    current_user: Annotated[User, Depends(get_current_user)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)]
+) -> TokenResponse:
+    result = await auth_service.change_password(current_user, payload)
+    _set_auth_cookies(response, result)
+    return TokenResponse(
+        access_token=result.access_token,
+        user=UserPrivateRead.model_validate(result.user)
     )

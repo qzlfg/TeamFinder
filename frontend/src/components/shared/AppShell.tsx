@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
-import { CalendarDays, Inbox, LogOut, Menu, User, Users, X } from 'lucide-react'
+import { Briefcase, CalendarDays, Inbox, LogOut, Menu, User, Users, X } from 'lucide-react'
 
 import { useNotificationsStream } from '@/api/sse'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -21,6 +21,7 @@ import { useUiStore } from '@/stores/ui-store'
 const NAV_ITEMS = [
   { to: '/events', label: 'Мероприятия', icon: CalendarDays },
   { to: '/teams', label: 'Команды', icon: Users },
+  { to: '/vacancies', label: 'Вакансии', icon: Briefcase },
   { to: '/applications', label: 'Заявки', icon: Inbox },
   { to: '/users', label: 'Участники', icon: User },
 ] as const

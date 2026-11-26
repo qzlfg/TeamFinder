@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { sessionQueryOptions } from '@/features/auth/session'
 import { eventsSearchSchema } from '@/features/events/search'
+import { vacanciesSearchSchema } from '@/features/teams/vacanciesSearch'
 import { queryClient } from '@/lib/query-client'
 
 interface RouterContext {
@@ -134,6 +135,13 @@ const teamDetailRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/teams/TeamDetailPage'), 'TeamDetailPage'),
 })
 
+const vacanciesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/vacancies',
+  validateSearch: (search) => vacanciesSearchSchema.parse(search),
+  component: lazyRouteComponent(() => import('@/features/teams/VacanciesPage'), 'VacanciesPage'),
+})
+
 const applicationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/applications',
@@ -172,6 +180,7 @@ const routeTree = rootRoute.addChildren([
   eventDetailRoute,
   teamsRoute,
   teamDetailRoute,
+  vacanciesRoute,
   applicationsRoute,
   userProfileRoute,
   usersRoute,

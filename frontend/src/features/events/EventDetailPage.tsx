@@ -28,6 +28,7 @@ import type { TeamRead, VacancyRead } from '@/features/teams/api'
 import { deleteTeamRequest, leaveTeamRequest, useMyTeams } from '@/features/teams/api'
 import { CreateTeamDialog } from '@/features/teams/CreateTeamDialog'
 import { TeamCard } from '@/features/teams/TeamCard'
+import { VacancySkillsList } from '@/features/teams/VacancySkillsList'
 import type { UserPublicRead } from '@/features/users/api'
 import { formatDate, getInitials } from '@/lib/format'
 import type { ParticipantStatus } from '@/lib/labels'
@@ -132,6 +133,7 @@ export function EventDetailPage() {
   const teams = teamsQuery.data ?? []
   const vacancies = vacanciesQuery.data ?? []
   const participants = participantsForMembership
+  const userSkillIds = new Set((session?.skills ?? []).map((skill) => skill.id))
   const teamById = new Map(teams.map((team) => [team.id, team]))
   const activeApplicationsByVacancy = new Map<string, ApplicationRead>()
   for (const application of myApplicationsQuery.data ?? []) {
@@ -343,6 +345,7 @@ export function EventDetailPage() {
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">
                           {vacancy.description}
                         </p>
+                        <VacancySkillsList skills={vacancy.skills} userSkillIds={userSkillIds} />
                       </div>
 
                       {action}

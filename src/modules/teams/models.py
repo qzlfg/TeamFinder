@@ -91,6 +91,10 @@ class Vacancy(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
+    @property
+    def skills(self) -> list[VacancySkill]:
+        return self.skill_links
+
 
 class VacancySkill(SQLModel, table=True):
     __tablename__ = "vacancy_skills"

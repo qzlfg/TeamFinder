@@ -1,5 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ExternalLink, MessageCircle } from 'lucide-react'
+import { ExternalLink, MessageCircle, UserPlus } from 'lucide-react'
+import { useState } from 'react'
 
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -9,9 +10,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useSession } from '@/features/auth/session'
+import { useMyTeams } from '@/features/teams/api'
 import { useUserProfile } from '@/features/users/api'
 import { getInitials } from '@/lib/format'
 import { USER_ROLE_LABELS } from '@/lib/labels'
+import { InviteToTeamDialog } from './InviteToTeamDialog'
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,6 +30,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 export function UserProfilePage() {
   const { userId } = useParams({ from: '/users/$userId' })
   const { data: user, isPending, isError, error, refetch } = useUserProfile(userId)
+  const { data: session } = useSession()
+  const [inviteOpen, setInviteOpen] = useState(false)
+
+  const isMember = session?.role === 'member'
+  const myTeamsQuery = useMyTeams(undefined, isMember)
+  const leaderTeams = (myTeamsQuery.data ?? []).filter(
+    (team) => team.leader_id === session?.id && team.status === 'recruiting',
+  )
 
   if (isPending) {
     return (
@@ -55,6 +67,7 @@ export function UserProfilePage() {
 
   const fullName = `${user.first_name} ${user.last_name}`
   const skills = user.skills ?? []
+  const canInvite = Boolean(session && isMember && user.id !== session.id && leaderTeams.length > 0)
 
   return (
     <div className="space-y-6">
@@ -69,6 +82,14 @@ export function UserProfilePage() {
       <PageHeader
         title={fullName}
         description={`${USER_ROLE_LABELS[user.role]}${user.faculty ? ` · ${user.faculty}` : ''}`}
+        actions={
+          canInvite ? (
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="size-4" />
+              Пригласить в команду
+            </Button>
+          ) : null
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -187,6 +208,14 @@ export function UserProfilePage() {
           </Card>
         </div>
       </div>
+
+      <InviteToTeamDialog
+        userId={user.id}
+        userName={fullName}
+        teams={leaderTeams}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+      />
     </div>
   )
 }

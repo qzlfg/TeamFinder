@@ -155,12 +155,15 @@ async def get_event_vacancies(
     event_id: UUID,
     team_service: Annotated[TeamService, Depends(get_team_service)],
     status: Annotated[VacancyStatus | None, Query()] = VacancyStatus.OPEN,
+    skill_ids: Annotated[list[int] | None, Query()] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
+    """Список вакансий конкретного мероприятия с опциональной фильтрацией по навыкам."""
     return await team_service.get_event_vacancies(
         event_id=event_id,
         status=status,
+        skill_ids=skill_ids,
         skip=skip,
         limit=limit,
     )

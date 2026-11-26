@@ -32,10 +32,11 @@ async function fetchSkills(): Promise<SkillRead[]> {
   return unwrap(result)
 }
 
-export function useSkills() {
+export function useSkills(enabled = true) {
   return useQuery({
     queryKey: ['skills'],
     queryFn: fetchSkills,
+    enabled,
     staleTime: 5 * 60_000,
   })
 }
@@ -70,6 +71,7 @@ export function useAddSkill() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData(sessionQueryOptions.queryKey, user)
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success('Навык добавлен')
     },
   })
@@ -81,9 +83,10 @@ export function useRemoveSkill() {
 
   return useMutation({
     mutationFn: async (skillId: number) => {
-      await client.DELETE('/api/v1/users/me/skills/{skill_id}', {
+      const result = await client.DELETE('/api/v1/users/me/skills/{skill_id}', {
         params: { path: { skill_id: skillId } },
       })
+      unwrap(result)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['session'] })

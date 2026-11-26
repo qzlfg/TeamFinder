@@ -11,7 +11,7 @@ from src.core.config import settings
 from src.modules.applications.models import Application  # noqa: F401
 from src.modules.events.models import Event, EventParticipant  # noqa: F401
 from src.modules.notifications.models import Notification  # noqa: F401
-from src.modules.teams.models import Team, TeamMember, Vacancy  # noqa: F401
+from src.modules.teams.models import Team, TeamMember, Vacancy, VacancySkill  # noqa: F401
 from src.modules.users.models import Skill, User, UserSkill  # noqa: F401
 
 from alembic import context
@@ -42,6 +42,12 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
+def include_object(object, name, type_, reflected, compare_to) -> bool:
+    if type_ == "index" and name == "uq_applications_active_vacancy_user":
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -60,7 +66,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True
+        compare_type=True,
+        include_object=include_object
     )
 
     with context.begin_transaction():
@@ -72,6 +79,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object
     )
 
     with context.begin_transaction():

@@ -14,6 +14,7 @@ from src.modules.events.repository import EventRepository
 from src.modules.teams.exceptions import (
     InvalidLeadershipTransferError,
     LeaderCannotLeaveTeamError,
+    TeamError,
     TeamForbiddenError,
     TeamFullError,
     TeamMemberAlreadyExistsError,
@@ -24,7 +25,7 @@ from src.modules.teams.exceptions import (
     UserAlreadyInEventTeamError,
     VacancyNotFoundError,
 )
-from src.modules.teams.models import Team, TeamMember, Vacancy
+from src.modules.teams.models import Team, TeamMember, Vacancy, VacancySkill
 from src.modules.teams.repository import TeamRepository
 from src.modules.teams.schemas import (
     TeamCreate,
@@ -34,9 +35,10 @@ from src.modules.teams.schemas import (
     TeamRead,
     TeamUpdate,
     VacancyCreate,
+    VacancySkillInput,
     VacancyUpdate,
 )
-from src.modules.users.models import User
+from src.modules.users.models import Skill, User
 from src.modules.users.schemas import UserPublicRead
 
 
@@ -397,11 +399,29 @@ class TeamService:
             solo_participant=solo_participant,
         )
 
+
+    async def _load_and_validate_skills(
+        self,
+        skills: Sequence[VacancySkillInput],
+    ) -> dict[int, Skill]:
+        """Загружает объекты Skill и проверяет, что все переданные ID существуют."""
+        if not skills:
+            return {}
+
+        requested_ids = {item.skill_id for item in skills}
+        skills_by_id = await self.team_repo.get_skills_by_ids(list(requested_ids))
+        missing = requested_ids - skills_by_id.keys()
+        if missing:
+            raise TeamError(f"Указанные навыки не найдены: {sorted(missing)}")
+
+        return skills_by_id
+    
+
     async def create_vacancy(self, team_id: UUID, user: User, vacancy_data: VacancyCreate) -> Vacancy:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise TeamNotFoundError()
-        elif user.role != UserRole.ADMIN and team.leader_id != user.id:
+        if user.role != UserRole.ADMIN and team.leader_id != user.id:
             raise TeamForbiddenError()
 
         if team.status != TeamStatus.RECRUITING:
@@ -425,13 +445,31 @@ class TeamService:
             if current_size >= event.max_team_size:
                 raise TeamFullError()
 
-        vacancy = Vacancy(team_id=team_id, title=vacancy_data.title, description=vacancy_data.description, required_role=vacancy_data.required_role)
+        skills_by_id = await self._load_and_validate_skills(vacancy_data.skills)
+
+        vacancy = Vacancy(
+            team_id=team_id,
+            title=vacancy_data.title,
+            description=vacancy_data.description,
+            required_role=vacancy_data.required_role,
+        )
+        vacancy.skill_links = [
+            VacancySkill(
+                vacancy_id=vacancy.id,
+                skill_id=item.skill_id,
+                is_required=item.is_required,
+                skill=skills_by_id[item.skill_id],
+            )
+            for item in vacancy_data.skills
+        ]
+
         return await self.team_repo.create_vacancy(vacancy)
 
     async def get_team_vacancies(
         self,
         team_id: UUID,
         status: VacancyStatus | None,
+        skill_ids: list[int] | None,
         skip: int,
         limit: int,
     ) -> Sequence[Vacancy]:
@@ -442,9 +480,10 @@ class TeamService:
         if status == VacancyStatus.OPEN and team.status != TeamStatus.RECRUITING:
             return []
 
-        return await self.team_repo.get_team_vacancies(
-            team_id=team_id,
+        return await self.team_repo.get_vacancies(
+            team_ids=[team_id],
             status=status,
+            skill_ids=skill_ids,
             skip=skip,
             limit=limit,
         )
@@ -453,6 +492,7 @@ class TeamService:
         self,
         event_id: UUID,
         status: VacancyStatus | None,
+        skill_ids: list[int] | None,
         skip: int,
         limit: int,
     ) -> Sequence[Vacancy]:
@@ -460,12 +500,35 @@ class TeamService:
         if not event:
             raise EventNotFoundError()
 
-        return await self.team_repo.get_vacancies_by_event(
-            event_id=event_id,
+        return await self.team_repo.get_vacancies(
+            event_ids=[event_id],
             status=status,
+            skill_ids=skill_ids,
             skip=skip,
             limit=limit,
         )
+
+    async def get_all_vacancies(
+            self,
+            team_ids: list[UUID] | None,
+            event_ids: list[UUID] | None,
+            only_pet_projects: bool,
+            status: VacancyStatus | None,
+            skill_ids: list[int] | None,
+            skip: int,
+            limit: int,
+    ):
+        return await self.team_repo.get_vacancies(
+                    team_ids=team_ids,
+                    event_ids=event_ids,
+                    only_pet_projects=only_pet_projects,
+                    status=status,
+                    skill_ids=skill_ids,
+                    skip=skip,
+                    limit=limit,
+                )
+        
+        
 
     async def update_vacancy(
         self,
@@ -509,7 +572,15 @@ class TeamService:
                     if deadline <= datetime.now(UTC):
                         raise EventRegistrationDeadlinePassedError()
 
-        return await self.team_repo.update_vacancy(vacancy, update_data)
+        skills_by_id: dict[int, Skill] | None = None
+        if update_data.skills is not None:
+            skills_by_id = await self._load_and_validate_skills(update_data.skills)
+
+        return await self.team_repo.update_vacancy(
+            vacancy=vacancy,
+            update_data=update_data,
+            skills_by_id=skills_by_id,
+        )
 
     async def delete_vacancy(self, vacancy_id: UUID, user: User) -> None:
         vacancy = await self.team_repo.get_vacancy_by_id(vacancy_id)

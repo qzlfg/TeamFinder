@@ -1,5 +1,14 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { CalendarDays, GitBranch, Pencil, Plus, Trash2, UserMinus, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  Crown,
+  GitBranch,
+  Pencil,
+  Plus,
+  Trash2,
+  UserMinus,
+  Users,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -26,10 +35,14 @@ import {
   useTeamApplications,
   useTeamMembers,
   useTeamVacancies,
+  useTransferLeadership,
   useUpdateVacancy,
 } from '@/features/teams/api'
 import { CreateVacancyDialog } from '@/features/teams/CreateVacancyDialog'
 import { EditTeamDialog } from '@/features/teams/EditTeamDialog'
+import { EditTeamMemberRoleDialog } from '@/features/teams/EditTeamMemberRoleDialog'
+import { EditVacancyDialog } from '@/features/teams/EditVacancyDialog'
+import { VacancySkillsList } from '@/features/teams/VacancySkillsList'
 import { formatDate, getInitials } from '@/lib/format'
 import {
   APPLICATION_DIRECTION_LABELS,
@@ -64,6 +77,7 @@ export function TeamDetailPage() {
   const updateVacancy = useUpdateVacancy()
   const deleteVacancy = useDeleteVacancy()
   const removeMember = useRemoveTeamMember(teamId)
+  const transferLeadership = useTransferLeadership(teamId)
   const leaveTeam = useLeaveTeam(teamId)
   const setApplicationStatus = useSetApplicationStatus()
 
@@ -72,7 +86,10 @@ export function TeamDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [deleteVacancyTarget, setDeleteVacancyTarget] = useState<VacancyRead | null>(null)
+  const [editVacancyTarget, setEditVacancyTarget] = useState<VacancyRead | null>(null)
   const [removeMemberTarget, setRemoveMemberTarget] = useState<TeamMemberDetailRead | null>(null)
+  const [roleTarget, setRoleTarget] = useState<TeamMemberDetailRead | null>(null)
+  const [transferTarget, setTransferTarget] = useState<TeamMemberDetailRead | null>(null)
   const [applyVacancy, setApplyVacancy] = useState<VacancyRead | null>(null)
 
   if (teamQuery.isPending) {
@@ -105,6 +122,7 @@ export function TeamDetailPage() {
   const vacancies = vacanciesQuery.data ?? []
   const applications = applicationsQuery.data ?? []
   const leader = members.find((member) => member.user.id === team.leader_id)
+  const userSkillIds = new Set((session?.skills ?? []).map((skill) => skill.id))
 
   const handleApplication = (application: ApplicationRead, status: ApplicationStatus) => {
     setApplicationStatus.mutate({ applicationId: application.id, status })
@@ -232,6 +250,7 @@ export function TeamDetailPage() {
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">
                         {vacancy.description}
                       </p>
+                      <VacancySkillsList skills={vacancy.skills} userSkillIds={userSkillIds} />
                     </div>
 
                     {canManage ? (
@@ -248,6 +267,15 @@ export function TeamDetailPage() {
                           }
                         >
                           Закрыть
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-zinc-400 hover:text-zinc-900"
+                          aria-label="Редактировать вакансию"
+                          onClick={() => setEditVacancyTarget(vacancy)}
+                        >
+                          <Pencil className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -478,18 +506,43 @@ export function TeamDetailPage() {
                       </div>
                     </Link>
 
-                    {canManage && member.user.id !== team.leader_id ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-zinc-400 hover:text-destructive"
-                        aria-label="Исключить участника"
-                        disabled={removeMember.isPending}
-                        onClick={() => setRemoveMemberTarget(member)}
-                      >
-                        <UserMinus className="size-4" />
-                      </Button>
-                    ) : null}
+                    <div className="flex items-center gap-0.5">
+                      {canManage || member.user.id === session?.id ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-zinc-400 hover:text-zinc-900"
+                          aria-label="Изменить роль"
+                          onClick={() => setRoleTarget(member)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                      ) : null}
+
+                      {canManage && member.user.id !== team.leader_id ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-zinc-400 hover:text-destructive"
+                            aria-label="Передать лидерство"
+                            onClick={() => setTransferTarget(member)}
+                          >
+                            <Crown className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-zinc-400 hover:text-destructive"
+                            aria-label="Исключить участника"
+                            disabled={removeMember.isPending}
+                            onClick={() => setRemoveMemberTarget(member)}
+                          >
+                            <UserMinus className="size-4" />
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -598,6 +651,59 @@ export function TeamDetailPage() {
           }
         }}
       />
+
+      <ConfirmDialog
+        open={transferTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTransferTarget(null)
+          }
+        }}
+        title="Передать лидерство?"
+        description={
+          transferTarget
+            ? `${transferTarget.user.first_name} ${transferTarget.user.last_name} станет лидером команды.${isLeader ? ' Вы останетесь участником.' : ''}`
+            : ''
+        }
+        confirmLabel="Передать"
+        destructive
+        isPending={transferLeadership.isPending}
+        onConfirm={async () => {
+          if (!transferTarget) {
+            return
+          }
+
+          try {
+            await transferLeadership.mutateAsync(transferTarget.user.id)
+            setTransferTarget(null)
+          } catch {
+            // Ошибка уже показана тостом в src/api/client.ts.
+          }
+        }}
+      />
+
+      <EditTeamMemberRoleDialog
+        teamId={teamId}
+        member={roleTarget}
+        open={roleTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoleTarget(null)
+          }
+        }}
+      />
+
+      {editVacancyTarget ? (
+        <EditVacancyDialog
+          vacancy={editVacancyTarget}
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditVacancyTarget(null)
+            }
+          }}
+        />
+      ) : null}
 
       <EditTeamDialog team={team} open={editOpen} onOpenChange={setEditOpen} />
       <CreateVacancyDialog teamId={teamId} open={vacancyOpen} onOpenChange={setVacancyOpen} />

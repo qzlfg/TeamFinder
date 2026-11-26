@@ -76,11 +76,29 @@ class TeamMemberDetailRead(SQLModel):
     joined_at: datetime
 
 
+class VacancySkillInput(SQLModel):
+    skill_id: int
+    is_required: bool = True
+
+
+class VacancySkillRead(SQLModel):
+    skill: SkillRead
+    is_required: bool
+
+
+
 class VacancyCreate(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=1, max_length=1000)
     required_role: str = Field(min_length=1, max_length=255)
     skills: list[VacancySkillInput] = []
+
+    @model_validator(mode="after")
+    def validate_unique_skills(self) -> Self:
+        ids = [item.skill_id for item in self.skills]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Навыки в вакансии не должны повторяться")
+        return self
 
 
 class VacancyUpdate(SQLModel):
@@ -117,13 +135,4 @@ class VacancyRead(SQLModel):
     required_role: str
     status: VacancyStatus
     created_at: datetime
-    skills: list[VacancySkillInput]
-
-
-class VacancySkillInput(SQLModel):
-    skill_id: int
-    is_required: bool = True
-
-class VacancySkillRead(SQLModel):
-    skill: SkillRead
-    is_required: bool
+    skills: list[VacancySkillRead] = Field(default_factory=list)

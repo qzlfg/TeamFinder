@@ -12,39 +12,51 @@ export type TeamCreate = components['schemas']['TeamCreate']
 export type TeamUpdate = components['schemas']['TeamUpdate']
 export type VacancyCreate = components['schemas']['VacancyCreate']
 export type VacancyUpdate = components['schemas']['VacancyUpdate']
+export type VacancySkillInput = components['schemas']['VacancySkillInput']
+export type VacancySkillRead = components['schemas']['VacancySkillRead']
 export type ApplicationRead = components['schemas']['ApplicationDetailRead']
 
-async function fetchTeams(status?: TeamStatus): Promise<TeamRead[]> {
+async function fetchTeams(status?: TeamStatus, onlyPetProjects = false): Promise<TeamRead[]> {
   const result = await client.GET('/api/v1/teams', {
-    params: { query: { status: status ? [status] : undefined, limit: 50 } },
+    params: {
+      query: {
+        status: status ? [status] : undefined,
+        only_pet_projects: onlyPetProjects || undefined,
+        limit: 50,
+      },
+    },
   })
 
   return unwrap(result)
 }
 
-export function useTeams(status?: TeamStatus) {
+export function useTeams(status?: TeamStatus, onlyPetProjects = false) {
   return useQuery({
-    queryKey: ['teams', { status }],
-    queryFn: () => fetchTeams(status),
+    queryKey: ['teams', { status, onlyPetProjects }],
+    queryFn: () => fetchTeams(status, onlyPetProjects),
     staleTime: 30_000,
   })
 }
 
-async function fetchMyTeams(eventId?: string): Promise<TeamRead[]> {
-  // Временный cast: маршрут GET /teams/me ещё не попал в schema.d.ts.
-  const path = '/api/v1/teams/me' as '/api/v1/teams/{team_id}/me'
-  const result = await client.GET(path, {
-    params: { query: { event_id: eventId, limit: 50 } },
+async function fetchMyTeams(eventId?: string, onlyPetProjects = false): Promise<TeamRead[]> {
+  const result = await client.GET('/api/v1/teams/me', {
+    params: {
+      query: {
+        event_id: eventId,
+        only_pet_projects: onlyPetProjects || undefined,
+        limit: 50,
+      },
+    },
     headers: { 'x-silent-error': '1' },
   })
 
   return unwrap(result)
 }
 
-export function useMyTeams(eventId?: string, enabled = true) {
+export function useMyTeams(eventId?: string, enabled = true, onlyPetProjects = false) {
   return useQuery({
-    queryKey: ['teams', 'my', eventId ?? 'all'],
-    queryFn: () => fetchMyTeams(eventId),
+    queryKey: ['teams', 'my', eventId ?? 'all', onlyPetProjects],
+    queryFn: () => fetchMyTeams(eventId, onlyPetProjects),
     enabled: Boolean(enabled),
     staleTime: 30_000,
   })
@@ -89,6 +101,34 @@ export function useTeamVacancies(teamId: string, status: VacancyStatus = 'open')
       return unwrap(result)
     },
     enabled: Boolean(teamId),
+  })
+}
+
+export interface VacancyFilters {
+  skillIds?: number[]
+  eventId?: string
+  onlyPetProjects?: boolean
+}
+
+/** Общая витрина открытых вакансий с фильтрами. */
+export function useVacancies(filters: VacancyFilters) {
+  return useQuery({
+    queryKey: ['vacancies', filters],
+    queryFn: async () => {
+      const result = await client.GET('/api/v1/vacancies', {
+        params: {
+          query: {
+            skill_id: filters.skillIds?.length ? filters.skillIds : undefined,
+            event_id: filters.eventId ? [filters.eventId] : undefined,
+            only_pet_projects: filters.onlyPetProjects || undefined,
+            status: 'open',
+            limit: 50,
+          },
+        },
+      })
+      return unwrap(result)
+    },
+    staleTime: 30_000,
   })
 }
 
@@ -240,6 +280,45 @@ export function useRemoveTeamMember(teamId: string) {
       void queryClient.invalidateQueries({ queryKey: ['teams'] })
       void queryClient.invalidateQueries({ queryKey: ['events'] })
       toast.success('Участник исключён')
+    },
+  })
+}
+
+export function useUpdateTeamMemberRole(teamId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, roleName }: { userId: string; roleName: string }) => {
+      const result = await client.PATCH('/api/v1/teams/{team_id}/members/{user_id}', {
+        params: { path: { team_id: teamId, user_id: userId } },
+        body: { role_name: roleName },
+      })
+      return unwrap(result)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      toast.success('Роль участника обновлена')
+    },
+  })
+}
+
+export function useTransferLeadership(teamId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (newLeaderId: string) => {
+      const result = await client.POST('/api/v1/teams/{team_id}/transfer-leadership', {
+        params: {
+          path: { team_id: teamId },
+          query: { new_leader_id: newLeaderId },
+        },
+      })
+      return unwrap(result)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'] })
+      toast.success('Лидерство передано')
     },
   })
 }

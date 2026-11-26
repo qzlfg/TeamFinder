@@ -1,6 +1,7 @@
-import { ExternalLink, Pencil } from 'lucide-react'
+import { ExternalLink, KeyRound, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
+import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SkillBadge } from '@/components/shared/SkillBadge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ChangeEmailDialog } from '@/features/auth/ChangeEmailDialog'
+import { ChangePasswordDialog } from '@/features/auth/ChangePasswordDialog'
 import { useSession } from '@/features/auth/session'
 import { formatDate, getInitials } from '@/lib/format'
 import { USER_ROLE_LABELS } from '@/lib/labels'
@@ -26,10 +28,20 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 /** Профиль текущего пользователя: просмотр и редактирование анкеты и навыков. */
 export function ProfilePage() {
-  const { data: user, isPending } = useSession()
+  const { data: user, isPending, isError, error, refetch } = useSession()
   const [editOpen, setEditOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+
+  if (isError) {
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
 
   if (isPending || !user) {
     return (
@@ -48,10 +60,16 @@ export function ProfilePage() {
         title="Профиль"
         description="Ваши данные видят другие участники в каталоге."
         actions={
-          <Button onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            Редактировать
-          </Button>
+          <>
+            <Button onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Редактировать
+            </Button>
+            <Button variant="outline" onClick={() => setPasswordOpen(true)}>
+              <KeyRound className="size-4" />
+              Изменить пароль
+            </Button>
+          </>
         }
       />
 
@@ -160,6 +178,7 @@ export function ProfilePage() {
       </div>
 
       <ChangeEmailDialog open={emailOpen} onOpenChange={setEmailOpen} />
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
       <EditProfileDialog user={user} open={editOpen} onOpenChange={setEditOpen} />
       <SkillsEditor user={user} open={skillsOpen} onOpenChange={setSkillsOpen} />
     </div>

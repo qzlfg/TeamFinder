@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -13,7 +14,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import type { VacancySkillInput } from './api'
 import { useCreateVacancy } from './api'
+import { VacancySkillsField } from './VacancySkillsField'
 
 const vacancySchema = z.object({
   title: z.string().trim().min(1, 'Укажите заголовок').max(255, 'Максимум 255 символов'),
@@ -32,11 +35,21 @@ interface CreateVacancyDialogProps {
 /** Открытие вакансии лидером команды в статусе «Набор». */
 export function CreateVacancyDialog({ teamId, open, onOpenChange }: CreateVacancyDialogProps) {
   const createVacancy = useCreateVacancy(teamId)
+  const [skills, setSkills] = useState<VacancySkillInput[]>([])
 
   const form = useForm<VacancyValues>({
     resolver: zodResolver(vacancySchema),
     defaultValues: { title: '', description: '', required_role: '' },
   })
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setSkills([])
+      form.reset()
+    }
+
+    onOpenChange(nextOpen)
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -44,17 +57,16 @@ export function CreateVacancyDialog({ teamId, open, onOpenChange }: CreateVacanc
         title: values.title.trim(),
         description: values.description.trim(),
         required_role: values.required_role.trim(),
-        skills: [],
+        skills,
       })
-      onOpenChange(false)
-      form.reset()
+      handleOpenChange(false)
     } catch {
       // Ошибка показана тостом в src/api/client.ts.
     }
   })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Новая вакансия</DialogTitle>
@@ -96,8 +108,13 @@ export function CreateVacancyDialog({ teamId, open, onOpenChange }: CreateVacanc
             ) : null}
           </div>
 
+          <div className="space-y-1.5">
+            <p className="text-sm leading-none font-medium">Навыки</p>
+            <VacancySkillsField value={skills} onChange={setSkills} enabled={open} />
+          </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Отмена
             </Button>
             <Button type="submit" disabled={createVacancy.isPending}>

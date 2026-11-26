@@ -8,6 +8,7 @@ export type CurrentUser = components['schemas']['UserPrivateRead']
 export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['UserCreate']
 export type EmailChangeRequest = components['schemas']['EmailChangeRequest']
+export type PasswordChangeRequest = components['schemas']['PasswordChangeRequest']
 
 /** Пробный запрос сессии: 401 ожидаем и превращаем в `null`. */
 async function fetchSession(): Promise<CurrentUser | null> {
@@ -75,6 +76,25 @@ export function useLogout() {
     onSettled: () => {
       queryClient.clear()
       queryClient.setQueryData(sessionQueryOptions.queryKey, null)
+    },
+  })
+}
+
+/** Смена пароля с подтверждением текущего; сервер ротирует cookie. */
+export function useChangePassword() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (values: PasswordChangeRequest) => {
+      const result = await client.POST('/api/v1/auth/change-password', {
+        body: values,
+        headers: { 'x-silent-error': '1' },
+      })
+      return unwrap(result)
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(sessionQueryOptions.queryKey, data.user)
+      toast.success('Пароль изменён')
     },
   })
 }

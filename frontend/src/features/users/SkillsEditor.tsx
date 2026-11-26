@@ -28,7 +28,7 @@ interface SkillsEditorProps {
 
 /** Управление навыками профиля: справочник /skills + привязка к /users/me. */
 export function SkillsEditor({ user, open, onOpenChange }: SkillsEditorProps) {
-  const { data: catalog = [], isPending } = useSkills()
+  const { data: catalog = [], isPending } = useSkills(open)
   const addSkill = useAddSkill()
   const removeSkill = useRemoveSkill()
   const [selected, setSelected] = useState('')
@@ -115,8 +115,7 @@ export function SkillsEditor({ user, open, onOpenChange }: SkillsEditorProps) {
 
           {catalog.length === 0 && !isPending ? (
             <p className="text-xs leading-relaxed text-zinc-500">
-              Справочник навыков пуст: администратор или ментор может добавить навыки через
-              <span className="font-mono"> POST /api/v1/skills</span>.
+              Справочник навыков пока пуст. Обратитесь к администратору.
             </p>
           ) : null}
         </div>

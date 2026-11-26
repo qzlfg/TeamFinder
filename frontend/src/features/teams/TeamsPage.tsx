@@ -1,4 +1,4 @@
-import { Plus, Users } from 'lucide-react'
+import { Plus, Rocket, Users } from 'lucide-react'
 import { useState } from 'react'
 
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -27,13 +27,15 @@ const STATUS_TABS: { value: TeamStatus | 'all'; label: string }[] = [
 export function TeamsPage() {
   const [status, setStatus] = useState<TeamStatus | 'all'>('all')
   const [onlyMine, setOnlyMine] = useState(false)
+  const [onlyPetProjects, setOnlyPetProjects] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const { data: session } = useSession()
 
   const canUseMyTeams = session?.role === 'member'
-  const myTeamsQuery = useMyTeams(undefined, canUseMyTeams)
+  const myTeamsQuery = useMyTeams(undefined, canUseMyTeams, onlyPetProjects)
   const { data, isPending, isError, error, refetch } = useTeams(
     status === 'all' ? undefined : status,
+    onlyPetProjects,
   )
 
   const canCreate = session?.role === 'member' && status !== 'archived'
@@ -82,30 +84,47 @@ export function TeamsPage() {
           </TabsList>
         </Tabs>
 
-        {canUseMyTeams ? (
+        <div className="flex items-center gap-2">
+          {canUseMyTeams ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-pressed={onlyMine}
+              className={cn(
+                'h-8 gap-1.5 bg-white',
+                onlyMine && 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50',
+              )}
+              onClick={() => setOnlyMine((value) => !value)}
+            >
+              <Users className="size-3.5" />
+              Мои команды
+              <span
+                className={cn(
+                  'font-mono text-xs tabular-nums',
+                  onlyMine ? 'text-blue-600' : 'text-zinc-400',
+                )}
+              >
+                {myTeamsForStatus.length}
+              </span>
+            </Button>
+          ) : null}
+
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-pressed={onlyMine}
+            aria-pressed={onlyPetProjects}
             className={cn(
               'h-8 gap-1.5 bg-white',
-              onlyMine && 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50',
+              onlyPetProjects && 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50',
             )}
-            onClick={() => setOnlyMine((value) => !value)}
+            onClick={() => setOnlyPetProjects((value) => !value)}
           >
-            <Users className="size-3.5" />
-            Мои команды
-            <span
-              className={cn(
-                'font-mono text-xs tabular-nums',
-                onlyMine ? 'text-blue-600' : 'text-zinc-400',
-              )}
-            >
-              {myTeamsForStatus.length}
-            </span>
+            <Rocket className="size-3.5" />
+            Пет-проекты
           </Button>
-        ) : null}
+        </div>
       </div>
 
       {isListPending ? (
@@ -126,13 +145,21 @@ export function TeamsPage() {
       ) : teams.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={onlyMine ? 'Своих команд пока нет' : 'Команд пока нет'}
+          title={
+            onlyMine
+              ? 'Своих команд пока нет'
+              : onlyPetProjects
+                ? 'Пет-проектов пока нет'
+                : 'Команд пока нет'
+          }
           description={
             onlyMine
               ? status === 'all'
                 ? 'Вы ещё не создавали команду и не вступали в неё.'
                 : 'Среди ваших команд нет команд с этим статусом.'
-              : 'Создайте первую команду и откройте вакансии для поиска напарников.'
+              : onlyPetProjects
+                ? 'Создайте независимый проект без привязки к мероприятию.'
+                : 'Создайте первую команду и откройте вакансии для поиска напарников.'
           }
           action={
             onlyMine ? (
@@ -141,6 +168,7 @@ export function TeamsPage() {
                 onClick={() => {
                   setOnlyMine(false)
                   setStatus('all')
+                  setOnlyPetProjects(false)
                 }}
               >
                 Показать все команды

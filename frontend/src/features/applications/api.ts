@@ -7,6 +7,7 @@ import type { ApplicationStatus } from '@/lib/labels'
 
 export type ApplicationRead = components['schemas']['ApplicationDetailRead']
 export type ApplicationApplyCreate = components['schemas']['ApplicationApplyCreate']
+export type ApplicationInviteCreate = components['schemas']['ApplicationInviteCreate']
 export type ApplicationAction = Extract<ApplicationStatus, 'accepted' | 'cancelled' | 'rejected'>
 
 /** Активная заявка, по которой ещё можно выполнить действие. */
@@ -45,6 +46,27 @@ export function useApplyToVacancy() {
       void queryClient.invalidateQueries({ queryKey: ['session'] })
       toast.success('Отклик отправлен', {
         description: 'Лидер команды увидит его в списке заявок.',
+      })
+    },
+  })
+}
+
+/** POST /applications/invite — приглашение кандидата лидером команды. */
+export function useInviteUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: ApplicationInviteCreate) => {
+      const result = await client.POST('/api/v1/applications/invite', { body: payload })
+      return unwrap(result)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['applications'] })
+      void queryClient.invalidateQueries({ queryKey: ['teams'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      void queryClient.invalidateQueries({ queryKey: ['session'] })
+      toast.success('Приглашение отправлено', {
+        description: 'Кандидат увидит его в разделе заявок.',
       })
     },
   })

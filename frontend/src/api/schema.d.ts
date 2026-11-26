@@ -101,6 +101,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Password */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -331,7 +348,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Event Vacancies */
+        /**
+         * Get Event Vacancies
+         * @description Список вакансий конкретного мероприятия с опциональной фильтрацией по навыкам.
+         */
         get: operations["get_event_vacancies_api_v1_events__event_id__vacancies_get"];
         put?: never;
         post?: never;
@@ -535,7 +555,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/teams/{team_id}/vacancies": {
+    "/api/v1/vacancies": {
         parameters: {
             query?: never;
             header?: never;
@@ -543,23 +563,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Team Vacancies
-         * @description Получить список вакансий (открытых слотов) конкретной команды.
-         *
-         *     - **Доступ:** любой авторизованный пользователь.
-         *     - **Фильтры:** по умолчанию возвращает только открытые вакансии (`status=open`).
+         * Get Vacancies
+         * @description Общая витрина вакансий с фильтрацией по командам, ивентам, пет-проектам и навыкам.
          */
-        get: operations["get_team_vacancies_api_v1_teams__team_id__vacancies_get"];
+        get: operations["get_vacancies_api_v1_vacancies_get"];
         put?: never;
-        /**
-         * Create Vacancy
-         * @description Открыть новую вакансию для поиска специалиста в команду.
-         *
-         *     - **Доступ:** только лидер команды или администратор (`ADMIN`).
-         *     - **Ограничения:** команда должна находиться в статусе `RECRUITING`, а её текущий размер
-         *       должен быть меньше `max_team_size` мероприятия.
-         */
-        post: operations["create_vacancy_api_v1_teams__team_id__vacancies_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -573,7 +582,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Vacancy
+         * @description Детальная карточка вакансии с привязанными навыками.
+         */
+        get: operations["get_vacancy_api_v1_vacancies__vacancy_id__get"];
         put?: never;
         post?: never;
         /**
@@ -593,6 +606,34 @@ export interface paths {
          *     - **Ограничения:** при повторном открытии закрытой вакансии проверяется статус набора и лимит мест.
          */
         patch: operations["update_vacancy_api_v1_vacancies__vacancy_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/teams/{team_id}/vacancies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Team Vacancies
+         * @description Список вакансий конкретной команды с опциональной фильтрацией по навыкам.
+         */
+        get: operations["get_team_vacancies_api_v1_teams__team_id__vacancies_get"];
+        put?: never;
+        /**
+         * Create Vacancy
+         * @description Открыть новую вакансию для поиска специалиста в команду.
+         *
+         *     - **Доступ:** только лидер команды или администратор (`ADMIN`).
+         *     - **Ограничения:** команда должна находиться в статусе `RECRUITING`, а её текущий размер
+         *       должен быть меньше `max_team_size` мероприятия.
+         */
+        post: operations["create_vacancy_api_v1_teams__team_id__vacancies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/applications/apply": {
@@ -1172,6 +1213,13 @@ export interface components {
          * @enum {string}
          */
         ParticipantStatus: "searching" | "in_team";
+        /** PasswordChangeRequest */
+        PasswordChangeRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /**
          * SkillCategory
          * @enum {string}
@@ -1540,6 +1588,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Skills */
+            skills?: components["schemas"]["VacancySkillRead"][];
         };
         /** VacancySkillInput */
         VacancySkillInput: {
@@ -1549,6 +1599,12 @@ export interface components {
              * Is Required
              * @default true
              */
+            is_required: boolean;
+        };
+        /** VacancySkillRead */
+        VacancySkillRead: {
+            skill: components["schemas"]["SkillRead"];
+            /** Is Required */
             is_required: boolean;
         };
         /**
@@ -1726,6 +1782,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EmailChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeRequest"];
             };
         };
         responses: {
@@ -2296,6 +2385,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["VacancyStatus"] | null;
+                skill_ids?: number[] | null;
                 skip?: number;
                 limit?: number;
             };
@@ -2719,17 +2809,19 @@ export interface operations {
             };
         };
     };
-    get_team_vacancies_api_v1_teams__team_id__vacancies_get: {
+    get_vacancies_api_v1_vacancies_get: {
         parameters: {
             query?: {
+                team_id?: string[] | null;
+                event_id?: string[] | null;
+                only_pet_projects?: boolean;
                 status?: components["schemas"]["VacancyStatus"] | null;
+                skill_id?: number[] | null;
                 skip?: number;
                 limit?: number;
             };
             header?: never;
-            path: {
-                team_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -2754,23 +2846,19 @@ export interface operations {
             };
         };
     };
-    create_vacancy_api_v1_teams__team_id__vacancies_post: {
+    get_vacancy_api_v1_vacancies__vacancy_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                team_id: string;
+                vacancy_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VacancyCreate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2835,6 +2923,77 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VacancyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_team_vacancies_api_v1_teams__team_id__vacancies_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["VacancyStatus"] | null;
+                skill_ids?: number[] | null;
+                skip?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VacancyRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_vacancy_api_v1_teams__team_id__vacancies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VacancyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

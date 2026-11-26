@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { SkillBadge } from '@/components/shared/SkillBadge'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -14,10 +14,16 @@ interface UserCardProps {
 
 /** Карточка участника в каталоге: без Telegram, переход в публичный профиль. */
 export function UserCard({ user }: UserCardProps) {
+  const navigate = useNavigate()
   const skills = user.skills ?? []
 
   return (
-    <Card className="h-full gap-4 py-5 shadow-none">
+    <Card
+      className="h-full cursor-pointer gap-4 py-5 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300"
+      onClick={() => {
+        void navigate({ to: '/users/$userId', params: { userId: user.id } })
+      }}
+    >
       <CardHeader className="gap-3 px-5">
         <div className="flex items-center gap-3">
           <Avatar className="size-9">
@@ -31,6 +37,7 @@ export function UserCard({ user }: UserCardProps) {
                 to="/users/$userId"
                 params={{ userId: user.id }}
                 className="text-zinc-950 hover:text-blue-600"
+                onClick={(event) => event.stopPropagation()}
               >
                 {user.first_name} {user.last_name}
               </Link>
@@ -56,7 +63,16 @@ export function UserCard({ user }: UserCardProps) {
           {skills.length === 0 ? (
             <span className="text-xs text-zinc-400">Навыки не указаны</span>
           ) : (
-            skills.slice(0, 4).map((skill) => <SkillBadge key={skill.id} skill={skill} />)
+            <>
+              {skills.slice(0, 4).map((skill) => (
+                <SkillBadge key={skill.id} skill={skill} />
+              ))}
+              {skills.length > 4 ? (
+                <Badge variant="outline" className="border-zinc-200 text-zinc-500">
+                  +{skills.length - 4}
+                </Badge>
+              ) : null}
+            </>
           )}
         </div>
 
@@ -64,6 +80,7 @@ export function UserCard({ user }: UserCardProps) {
           to="/users/$userId"
           params={{ userId: user.id }}
           className="inline-block text-xs font-medium text-blue-600 hover:underline"
+          onClick={(event) => event.stopPropagation()}
         >
           Открыть профиль
         </Link>

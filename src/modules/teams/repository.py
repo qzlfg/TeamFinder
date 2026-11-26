@@ -1,16 +1,21 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy.orm import aliased
-from sqlmodel import col, func, select
+from sqlalchemy.orm import aliased, selectinload
+from sqlmodel import col, exists, func, select
 from sqlmodel import update as sqlmodel_update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.common.enums import ParticipantStatus, TeamStatus, VacancyStatus
 from src.modules.events.models import EventParticipant
-from src.modules.teams.models import Team, TeamMember, Vacancy
-from src.modules.teams.schemas import TeamMemberUpdate, TeamUpdate, VacancyUpdate
-from src.modules.users.models import User
+from src.modules.teams.models import Team, TeamMember, Vacancy, VacancySkill
+from src.modules.teams.schemas import (
+    TeamMemberUpdate,
+    TeamUpdate,
+    VacancySkillInput,
+    VacancyUpdate,
+)
+from src.modules.users.models import Skill, User
 
 
 class TeamRepository:
@@ -230,45 +235,68 @@ class TeamRepository:
         await self.session.commit()
 
 
-    async def get_vacancy_by_id(self, vacancy_id: UUID) -> Vacancy | None:
-        return await self.session.get(Vacancy, vacancy_id)
+    async def get_skills_by_ids(self, skill_ids: Sequence[int]) -> dict[int, Skill]:
+        """Загружает объекты Skill по списку id для проверки и привязки к вакансии."""
+        if not skill_ids:
+            return {}
+        statement = select(Skill).where(col(Skill.id).in_(skill_ids))
+        result = await self.session.exec(statement)
+        return {skill.id: skill for skill in result.all()}
 
-    async def get_team_vacancies(
-        self,
-        team_id: UUID,
-        status: VacancyStatus | None,
-        skip: int,
-        limit: int,
-    ) -> Sequence[Vacancy]:
-        statement = select(Vacancy).where(Vacancy.team_id == team_id)
 
-        if status is not None:
-            statement = statement.where(Vacancy.status == status)
-
+    async def get_vacancy_by_id(
+        self, vacancy_id: UUID, *, refresh: bool = False
+    ) -> Vacancy | None:
         statement = (
-            statement.order_by(col(Vacancy.created_at).desc())
-            .offset(skip)
-            .limit(limit)
+            select(Vacancy)
+            .where(Vacancy.id == vacancy_id)
+            .options(
+                selectinload(Vacancy.skill_links).selectinload(VacancySkill.skill)
+            )
         )
         result = await self.session.exec(statement)
-        return result.all()
+        return result.first()
 
-    async def get_vacancies_by_event(
+    async def get_vacancies(
         self,
-        event_id: UUID,
-        status: VacancyStatus | None,
-        skip: int,
-        limit: int,
+        *,
+        team_ids: list[UUID] | None = None,
+        event_ids: list[UUID] | None = None,
+        only_pet_projects: bool = False,
+        status: VacancyStatus | None = None,
+        skill_ids: list[int] | None = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> Sequence[Vacancy]:
-        """Витрина вакансий всех команд внутри конкретного мероприятия."""
+        """Универсальная выборка вакансий: по команде, по списку ивентов или по всей платформе."""
         statement = (
             select(Vacancy)
             .join(Team, Vacancy.team_id == Team.id)
-            .where(Team.event_id == event_id)
+            .options(
+                selectinload(Vacancy.skill_links).selectinload(VacancySkill.skill)
+            )
         )
+
+        if team_ids is not None:
+            statement = statement.where(col(Vacancy.team_id).in_(team_ids))
+
+        if only_pet_projects:
+            statement = statement.where(col(Team.event_id).is_(None))
+        elif event_ids:
+            statement = statement.where(col(Team.event_id).in_(event_ids))
 
         if status is not None:
             statement = statement.where(Vacancy.status == status)
+            if status == VacancyStatus.OPEN:
+                statement = statement.where(Team.status == TeamStatus.RECRUITING)
+
+        if skill_ids:
+            statement = statement.where(
+                exists().where(
+                    VacancySkill.vacancy_id == Vacancy.id,
+                    col(VacancySkill.skill_id).in_(skill_ids),
+                )
+            )
 
         statement = (
             statement.order_by(col(Vacancy.created_at).desc())
@@ -277,25 +305,54 @@ class TeamRepository:
         )
         result = await self.session.exec(statement)
         return result.all()
+
 
     async def create_vacancy(self, vacancy: Vacancy) -> Vacancy:
         self.session.add(vacancy)
         await self.session.commit()
-        await self.session.refresh(vacancy)
         return vacancy
 
+    
     async def update_vacancy(
-        self, vacancy: Vacancy, update_data: VacancyUpdate
+        self,
+        vacancy: Vacancy,
+        update_data: VacancyUpdate,
+        skills_by_id: dict[int, Skill] | None = None,
     ) -> Vacancy:
         patch_dict = update_data.model_dump(exclude_unset=True)
+        has_skills = "skills" in patch_dict
+        patch_dict.pop("skills", None)
+
         for key, value in patch_dict.items():
             setattr(vacancy, key, value)
 
+        if has_skills and update_data.skills is not None:
+            incoming = {item.skill_id: item.is_required for item in update_data.skills}
+            existing = {link.skill_id: link for link in vacancy.skill_links}
+            skills_map = skills_by_id or {}
+
+            vacancy.skill_links[:] = [
+                link for link in vacancy.skill_links if link.skill_id in incoming
+            ]
+
+            for skill_id, is_required in incoming.items():
+                if skill_id in existing:
+                    existing[skill_id].is_required = is_required
+                else:
+                    vacancy.skill_links.append(
+                        VacancySkill(
+                            vacancy_id=vacancy.id,
+                            skill_id=skill_id,
+                            is_required=is_required,
+                            skill=skills_map[skill_id],
+                        )
+                    )
+
         self.session.add(vacancy)
         await self.session.commit()
-        await self.session.refresh(vacancy)
         return vacancy
 
+    
     async def delete_vacancy(self, vacancy: Vacancy) -> None:
         await self.session.delete(vacancy)
         await self.session.commit()

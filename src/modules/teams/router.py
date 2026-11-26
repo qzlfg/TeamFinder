@@ -311,6 +311,47 @@ async def remove_team_member(
 
 
 @router.get(
+    "/vacancies",
+    response_model=list[VacancyRead],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_vacancies(
+    team_service: ServiceDep,
+    team_id: Annotated[list[UUID] | None, Query()] = None,
+    event_id: Annotated[list[UUID] | None, Query()] = None,
+    only_pet_projects: Annotated[bool, Query()] = False,
+    status: Annotated[VacancyStatus | None, Query()] = VacancyStatus.OPEN,
+    skill_id: Annotated[list[int] | None, Query()] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """Общая витрина вакансий с фильтрацией по командам, ивентам, пет-проектам и навыкам."""
+    return await team_service.get_all_vacancies(
+        team_ids=team_id,
+        event_ids=event_id,
+        only_pet_projects=only_pet_projects,
+        status=status,
+        skill_ids=skill_id,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/vacancies/{vacancy_id}",
+    response_model=VacancyRead,
+    dependencies=[Depends(get_current_user)],
+)
+async def get_vacancy(
+    vacancy_id: UUID,
+    team_service: ServiceDep,
+):
+    """Детальная карточка вакансии с привязанными навыками."""
+    return await team_service.get_vacancy_by_id(vacancy_id)
+
+
+
+@router.get(
     "/teams/{team_id}/vacancies",
     response_model=list[VacancyRead],
     dependencies=[Depends(get_current_user)],
@@ -319,21 +360,19 @@ async def get_team_vacancies(
     team_id: UUID,
     team_service: ServiceDep,
     status: Annotated[VacancyStatus | None, Query()] = VacancyStatus.OPEN,
+    skill_ids: Annotated[list[int] | None, Query()] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    """
-    Получить список вакансий (открытых слотов) конкретной команды.
-
-    - **Доступ:** любой авторизованный пользователь.
-    - **Фильтры:** по умолчанию возвращает только открытые вакансии (`status=open`).
-    """
+    """Список вакансий конкретной команды с опциональной фильтрацией по навыкам."""
     return await team_service.get_team_vacancies(
         team_id=team_id,
         status=status,
+        skill_ids=skill_ids,
         skip=skip,
         limit=limit,
     )
+
 
 
 @router.post(

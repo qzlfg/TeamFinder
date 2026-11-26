@@ -19,25 +19,33 @@ import { useUpdateProfile } from './api'
 
 const optionalUrl = z
   .string()
+  .trim()
   .max(500, 'Максимум 500 символов')
   .optional()
-  .refine((value) => !value || z.url().safeParse(value).success, 'Некорректная ссылка')
+  .refine(
+    (value) => !value || /^https?:\/\/\S+$/.test(value),
+    'Ссылка должна начинаться с http:// или https://',
+  )
 
 const profileSchema = z.object({
-  first_name: z.string().min(1, 'Укажите имя').max(100, 'Максимум 100 символов'),
-  last_name: z.string().min(1, 'Укажите фамилию').max(100, 'Максимум 100 символов'),
-  faculty: z.string().max(255, 'Максимум 255 символов').optional(),
+  first_name: z.string().trim().min(1, 'Укажите имя').max(100, 'Максимум 100 символов'),
+  last_name: z.string().trim().min(1, 'Укажите фамилию').max(100, 'Максимум 100 символов'),
+  faculty: z.string().trim().max(255, 'Максимум 255 символов').optional(),
   course: z
     .string()
+    .trim()
     .optional()
     .refine((value) => !value || /^[1-7]$/.test(value), 'Курс от 1 до 7'),
-  group_name: z.string().max(50, 'Максимум 50 символов').optional(),
-  bio: z.string().max(1000, 'Максимум 1000 символов').optional(),
+  group_name: z.string().trim().max(50, 'Максимум 50 символов').optional(),
+  bio: z.string().trim().max(1000, 'Максимум 1000 символов').optional(),
   telegram_username: z
     .string()
-    .max(32, 'Максимум 32 символа')
-    .optional()
-    .refine((value) => !value || value.length >= 5, 'Минимум 5 символов'),
+    .trim()
+    .transform((value) => value.replace(/^@+/, ''))
+    .refine(
+      (value) => !value || /^[a-zA-Z0-9_]{5,32}$/.test(value),
+      '5–32 символа: латиница, цифры и _',
+    ),
   github_url: optionalUrl,
   portfolio_url: optionalUrl,
 })

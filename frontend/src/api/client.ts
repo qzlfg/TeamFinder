@@ -23,6 +23,7 @@ const AUTH_ENDPOINTS = new Set([
   '/api/v1/auth/refresh',
   // 401 здесь означает неверный текущий пароль, а не истёкшую сессию.
   '/api/v1/auth/change-email',
+  '/api/v1/auth/change-password',
 ])
 
 interface ValidationIssue {
